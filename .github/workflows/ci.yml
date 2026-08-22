@@ -8,17 +8,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
-      - name: reference verifier (node:crypto)
-        run: node tools/verify-test-vectors.mjs
-      - name: OpenSSL cross-verification
-        run: bash tools/verify-vectors-openssl.sh
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pynacl
+      - run: node tools/verify-test-vectors.mjs
+      - run: bash tools/verify-vectors-openssl.sh
+      - run: python3 tools/verify-vectors-pynacl.py
 
   packages:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        pkg: [identity, signed-files, bt-catalog]
+        pkg: [identity, signed-files, local-store, bt-catalog]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,17 +29,22 @@ jobs:
       - run: npm test --prefix packages/${{ matrix.pkg }}
       - run: npm run build --prefix packages/${{ matrix.pkg }}
 
-  adapters:
+  email:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        pkg: [email]
+    services:
+      greenmail:
+        image: greenmail/standalone:2.1.0
+        ports: ['3025:3025', '3143:3143']
+        env:
+          GREENMAIL_OPTS: "-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled"
+          GREENMAIL_USERS: "trader:secret@example.com"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
-      - run: npm ci --prefix adapters/${{ matrix.pkg }}
-      - run: npm test --prefix adapters/${{ matrix.pkg }}
-      - run: npm run build --prefix adapters/${{ matrix.pkg }}
-      # GreenMail 集成测试（GREENMAIL=1）在 M5 评审后接入
+      - run: npm ci --prefix adapters/email
+      - run: npm run build --prefix adapters/email
+      - name: unit tests
+        run: npm test --prefix adapters/email
+      - name: GreenMail integration tests
+        run: GREENMAIL=1 npm test --prefix adapters/email
