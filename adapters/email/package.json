@@ -1,0 +1,38 @@
+{
+  "name": "@agent-trade/email",
+  "version": "0.2.0",
+  "description": "SMTP send / IMAP poll / MIME parse email adapter with X-Trade-Id correlation, size gating and idempotent delivery (module M5)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:integration": "GREENMAIL=1 vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "imapflow": "^1.7.2",
+    "mailparser": "^3.9.15",
+    "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  }
+}
