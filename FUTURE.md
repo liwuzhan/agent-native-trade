@@ -9,3 +9,11 @@
 7. 自动反垃圾、统一 SEO、自动物流下单、高频交易优化。
 8. 一条评价一个 torrent 的传播方式（已用批次 Feed 替代）。
 9. 与 x402 / AP2 / ACP 等 agent 支付协议的桥接（settlement.provider_ref）。
+
+## 取舍登记（M1 identity）
+
+- **私钥形态**：`secretKey` 存 32 字节种子（RFC 8032 私钥即 seed），与 `node:crypto` PKCS#8 导出的原始种子一致；不放 64 字节展开密钥。
+- **严格验签**：`@noble/ed25519` v3 默认走 ZIP-215（可塑性）验签标准，`verify` 显式 `zip215:false` 强制严格 RFC 8032（拒绝 S≥L、非规范公钥），与 `node:crypto` 行为一致。
+- **同步 API 需要注入 SHA-512**：noble v3 同步方法默认关闭，模块加载时执行 `hashes.sha512 = sha512`（来自 `@noble/hashes`），与 readme 文档一致。
+- **base64url 自实现**：无填充、URL-safe 字母表，零额外依赖；输出与 `Buffer.toString('base64url')` 一致。
+- **JCS 数字**：用 ECMAScript `Number::toString`（RFC 8785），与 `node:crypto` 参考实现和 `canonicalize` 包在测试样本上输出完全一致（含 `-0`→`"0"`、`1e21`→`"1e+21"`）。

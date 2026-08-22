@@ -1,0 +1,33 @@
+{
+  "name": "@agent-trade/identity",
+  "version": "0.2.0",
+  "description": "Ed25519 identity, strict RFC 8032 sign/verify, SHA-256, RFC 8785 JCS — cryptographic foundation of agent-trade/0.2 (module M1)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^3.1.0",
+    "@noble/hashes": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "canonicalize": "^4.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  }
+}
