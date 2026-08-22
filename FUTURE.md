@@ -25,3 +25,14 @@
 - 索引仅 events+trades 两表，全部可由 objects/ 推导；`rebuildIndex` 采用关库→删文件→重开→全量重建，重放顺序 (occurred_at, event_id)。
 - `applyEvent` 防御性校验 body.trade_id 与参数一致；线性链事件仅允许自紧邻前驱状态迁移（"付款事件不越级"）。
 - 信任环 = saveKey 存入的私钥派生公钥，跨 close/reopen 持久。
+
+## 取舍登记（M4 bt-catalog）
+
+- **webtorrent 固定 1.9.7**（原生依赖问题）：webtorrent 3.x 通过 `@thaunknown/simple-peer` 引入 `node-datachannel`（原生 WebRTC 插件），其 prebuild 需从 GitHub Releases 下载，而本环境 `github.com` 不可达导致安装超时失败。1.9.x 的 `simple-peer` 为纯 JS、唯一原生依赖 `utp-native` 的 prebuild 随 npm 包内置（`node-gyp-build` 本地选取，无网络下载），安装零失败。BT 的 TCP 传输不依赖 WebRTC，功能不受影响。
+- **未引入 create-torrent / magnet-uri**（卡片允许确认 API 不足后登记）：已确认 webtorrent 自带二者——`client.seed` 内部用 create-torrent 生成 `.torrent` 与 infoHash，`torrent.magnetURI` 由内置 parse-torrent/magnet-uri 生成并携带 `tr=` announce，`torrent.torrentFile` 直接可得。API 足够，无需新增依赖。
+- **startTracker 固定 5s announce 间隔**（默认 10 分钟）：本地 tracker 只用于测试；若下载方首次 announce 早于做种方，10 分钟间隔会挂死往返测试，5s 让错过的 announce 自愈。
+- **`dht` 选项**：卡片签名只列 `tracker`，但往返验收要求"DHT 关闭"。`seed`/`download` 的 opts 扩展了可选 `dht?: boolean`（默认 true）；测试显式传 `dht: false`。`lsd` 一律关闭（减少组播噪音）。
+- **字节序排序**用 `Buffer.compare`（UTF-8 字节序，规范要求），非 UTF-16 码元序——BMP 外二者不一致，单测覆盖。
+- **verifyCatalogFiles 为子集语义**：manifest 内每项必须存在且哈希一致，未列出的多余文件忽略（catalog_hash 只约束 manifest 内容）。
+- webtorrent / bittorrent-tracker 均无 TS 类型：src 内置窄版 ambient 声明（仅本地编译用，`declaration` 输出会剔除实现内 import，dist 的 .d.ts 零引用第三方类型，消费方无需额外 @types）。
+- dev 依赖在卡片字面清单（bittorrent-tracker + vitest）外另含 typescript（tsc -b 必需）与 @types/node（测试 typecheck），运行时依赖为 webtorrent + @agent-trade/identity，与 M1 登记口径一致。

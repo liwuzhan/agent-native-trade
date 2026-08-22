@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@agent-trade/identity": "file:../identity",
-    "webtorrent": "^3.0.21"
+    "webtorrent": "^1.9.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
