@@ -5,6 +5,7 @@
     { "path": "packages/signed-files" },
     { "path": "packages/local-store" },
     { "path": "packages/bt-catalog" },
-    { "path": "apps/demo-indexer" }
+    { "path": "apps/demo-indexer" },
+    { "path": "apps/mcp-server" }
   ]
 }

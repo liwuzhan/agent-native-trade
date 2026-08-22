@@ -69,3 +69,11 @@
 - 去重 = body_hash 唯一 + receipt_id 唯一（同 id 异内容 → HTTP 409）。
 - 回执索引/目录存档在自有 .data/receipts.sqlite（local-store 只承担事实文件+信任环+站点身份）。
 - 额外提供 `indexer serve` 子命令（卡片 CLI 只列 export/query）。
+
+## 取舍登记（M9 mcp-server）
+
+- `trade_sign_deal` 增加可选 `signer` 参数（本机多密钥环选钥，签名面仍严格 deal+expected_body_hash，调用方不能提供密钥）。
+- sign 成功后经 putObject 持久化 signed deal；verify/settlement 支持 deal 对象或 object_id 二选一（配合"响应不返回完整文件"）。
+- body schema 由 scripts/extract-body-schemas.mjs 从 protocol/schemas 提取（整信封 schema 要求 signatures≥1，无法验未签草稿）；schemas-sync 测试防漂移；运行时复用 MCP SDK 内置 AJV，未新增 ajv 依赖。
+- 无签名对象的工具 object_id 语义：identity → `identity:<agentId>`、status → trade_id。
+- manual-settlement 用进程内 InMemoryHumanTaskStore（M7 接口注入）；confirm 要求 PAY 任务 DONE，无工具代完成（人工在环）。

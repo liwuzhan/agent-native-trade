@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-trade.dev/schemas/trade-event-body.schema.json",
+  "title": "TRADE_EVENT body (extracted from protocol/schemas/trade-event.schema.json)",
+  "$defs": {
+    "agentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer",
+        "algorithm",
+        "signature",
+        "issued_at"
+      ],
+      "properties": {
+        "signer": {
+          "$ref": "#/$defs/agentId"
+        },
+        "algorithm": {
+          "const": "Ed25519"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{86}$"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "trade_id",
+    "event_type",
+    "actor",
+    "occurred_at"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trade_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_type": {
+      "enum": [
+        "DEAL_SIGNED",
+        "PAYMENT_REQUESTED",
+        "PAYMENT_CONFIRMED",
+        "ESCROWED",
+        "FULFILLING",
+        "SHIPPED",
+        "DELIVERED",
+        "COMPLETED",
+        "DISPUTED",
+        "RESOLVED",
+        "CANCELLED"
+      ]
+    },
+    "actor": {
+      "$ref": "#/$defs/agentId"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence": {
+      "type": "object"
+    },
+    "message": {
+      "type": "string"
+    }
+  }
+}

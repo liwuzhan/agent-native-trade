@@ -1,0 +1,46 @@
+{
+  "name": "@agent-trade/mcp-server",
+  "version": "0.2.0",
+  "description": "agent-trade/0.2 stdio MCP server (SDK V2): trade tools for Claude/Cursor and other heterogeneous agents (module M9)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "agent-trade-mcp": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "policy.json"
+  ],
+  "scripts": {
+    "build": "node scripts/extract-body-schemas.mjs && tsc -b",
+    "typecheck": "tsc -b",
+    "pretest": "node scripts/extract-body-schemas.mjs && tsc -b",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-trade/identity": "file:../../packages/identity",
+    "@agent-trade/local-store": "file:../../packages/local-store",
+    "@agent-trade/settlement": "file:../../adapters/settlement",
+    "@agent-trade/signed-files": "file:../../packages/signed-files",
+    "@modelcontextprotocol/server": "2.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@types/node": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
