@@ -36,3 +36,11 @@
 - **verifyCatalogFiles 为子集语义**：manifest 内每项必须存在且哈希一致，未列出的多余文件忽略（catalog_hash 只约束 manifest 内容）。
 - webtorrent / bittorrent-tracker 均无 TS 类型：src 内置窄版 ambient 声明（仅本地编译用，`declaration` 输出会剔除实现内 import，dist 的 .d.ts 零引用第三方类型，消费方无需额外 @types）。
 - dev 依赖在卡片字面清单（bittorrent-tracker + vitest）外另含 typescript（tsc -b 必需）与 @types/node（测试 typecheck），运行时依赖为 webtorrent + @agent-trade/identity，与 M1 登记口径一致。
+
+## 取舍登记（M5 email）
+
+- `OutboundMsg` 增加可选 `inReplyTo`（线程关联）；发件人由 smtpUrl 用户推导。
+- `createMailAdapter(config, deps?)` 增加可选测试注入参（MailboxSource/SendTransport/SeenStore/fetchTrace），单参调用与卡片签名一致。
+- 附件超限"拒绝落地但消息仍投递"（附件从列表剔除）；同名附件 -1/-2 后缀去重；无 Message-ID 时回退 imap-uid-<uid>@localhost。
+- 待办候选：邮件处理后的 \Seen/归档策略、uidValidity 处理、IMAP 重连策略。
+- GreenMail 集成测试本机无 Docker 未执行，由 CI 的 greenmail service 执行（greenmail/standalone:2.1.0，SMTP 3025 / IMAP 3143）。
