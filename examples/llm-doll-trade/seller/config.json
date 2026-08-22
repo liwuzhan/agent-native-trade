@@ -1,0 +1,13 @@
+{
+  "agent_id": "agent_seller",
+  "studio": "棉花研究所 cotton-doll-studio（虚构）",
+  "email": "seller@doll-studio.example",
+  "identity_seed_source": "../../protocol/test-vectors/vectors.json#identities.agent_seller",
+  "catalog": {
+    "catalog_id": "cotton-doll-catalog-2026",
+    "item_id": "cotton-doll-deluxe-set",
+    "description": "2026 春夏季棉花娃娃套装目录（全部虚构数据，无真实商品）",
+    "channels": ["bt-magnet", "email"],
+    "tracker": "http://127.0.0.1:16881/announce"
+  }
+}

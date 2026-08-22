@@ -1,0 +1,16 @@
+{
+  "catalog_id": "cotton-doll-catalog-2026",
+  "season": "2026-spring-summer",
+  "studio": "棉花研究所 cotton-doll-studio",
+  "items": [
+    {
+      "item_id": "cotton-doll-deluxe-set",
+      "name": "棉花娃娃豪华套装 · 25cm",
+      "spec": "25cm 棉花娃娃 1 只（含心跳棉与手缝五官），礼服 B 款 + 换装 C 款各 1 套，配件包 1 份",
+      "price_cny": "128.00",
+      "stock": 80,
+      "highlights": ["限定款", "手工刺绣", "含心跳棉"]
+    }
+  ],
+  "note": "演示数据全部虚构；价格为人民币（iso4217:CNY）十进制定点字符串"
+}

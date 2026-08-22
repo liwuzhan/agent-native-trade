@@ -1,0 +1,12 @@
+{
+  "buyer": "agent_buyer",
+  "target_item": "cotton-doll-deluxe-set",
+  "quantity": 1,
+  "budget_cny": "150.00",
+  "acceptance_conditions": [
+    "按目录规格交付（25cm 棉花娃娃 + 礼服 B + 换装 C + 配件包）",
+    "外包装完好、无污损",
+    "3 个工作日内发货"
+  ],
+  "note": "演示数据全部虚构"
+}

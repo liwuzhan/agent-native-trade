@@ -1,0 +1,11 @@
+{
+  "catalog_id": "cotton-doll-catalog-2026",
+  "currency": "iso4217:CNY",
+  "prices": {
+    "cotton-doll-set-basic": "68.00",
+    "cotton-doll-deluxe-set": "128.00",
+    "cotton-doll-accessories-pack": "32.00"
+  },
+  "shipping": { "method": "demo-carrier", "fee_cny": "0.00", "eta_days": 3 },
+  "note": "十进制定点字符串（协议 §4）；演示数据全部虚构"
+}

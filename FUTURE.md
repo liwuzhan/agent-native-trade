@@ -77,3 +77,11 @@
 - body schema 由 scripts/extract-body-schemas.mjs 从 protocol/schemas 提取（整信封 schema 要求 signatures≥1，无法验未签草稿）；schemas-sync 测试防漂移；运行时复用 MCP SDK 内置 AJV，未新增 ajv 依赖。
 - 无签名对象的工具 object_id 语义：identity → `identity:<agentId>`、status → trade_id。
 - manual-settlement 用进程内 InMemoryHumanTaskStore（M7 接口注入）；confirm 要求 PAY 任务 DONE，无工具代完成（人工在环）。
+
+## 取舍登记（M11 棉花娃娃端到端）
+
+- GreenMail 模式已实现未实测（本机无 Docker）：`RUN_MODE=greenmail` 走 M5 真实 SMTP/IMAP，待 CI 有 Docker 时补跑。
+- MCP 仅用于 DEAL 生命周期（起草/签/审签/记录/验签），其余步骤包直调——符合"包 + MCP 编排"口径。
+- 事件 object_id 非确定性（uuidv7/now），权威值见 runlog/demo-summary.json；演示未调用 rebuildIndex（避免同毫秒重放抖动，M3 测试已覆盖该特性）。
+- 人类步骤由演示脚本自动标记完成；整合商由第二索引器实例扮演；整合商身份为硬编码虚构固定种子。
+- 修复记录：lib/mcp.mjs 相对路径层级错误导致 MCP 子进程秒退（已改 ../../../）；MCP 子进程 stderr 需排空防阻塞。

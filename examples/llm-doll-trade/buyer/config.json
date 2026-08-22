@@ -1,0 +1,10 @@
+{
+  "agent_id": "agent_buyer",
+  "handle": "momo-collector（虚构）",
+  "email": "buyer@momo.example",
+  "identity_seed_source": "../../protocol/test-vectors/vectors.json#identities.agent_buyer",
+  "wishlist_ref": "./wishlist.json",
+  "model_config": {
+    "role": "买方 agent：经整合商/检索站发现目录，邮件议价，MCP 起草并签署合同，M7 任务驱动人类支付与收货"
+  }
+}

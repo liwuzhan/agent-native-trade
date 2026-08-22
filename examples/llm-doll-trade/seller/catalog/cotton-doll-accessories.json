@@ -1,0 +1,15 @@
+{
+  "catalog_id": "cotton-doll-catalog-2026",
+  "season": "2026-spring-summer",
+  "studio": "棉花研究所 cotton-doll-studio",
+  "items": [
+    {
+      "item_id": "cotton-doll-accessories-pack",
+      "name": "棉花娃娃配件包",
+      "spec": "发饰、眼镜、小背包、替换鞋各 1 件",
+      "price_cny": "32.00",
+      "stock": 300
+    }
+  ],
+  "note": "演示数据全部虚构；价格为人民币（iso4217:CNY）十进制定点字符串"
+}

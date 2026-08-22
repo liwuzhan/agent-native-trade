@@ -1,0 +1,25 @@
+{
+  "name": "llm-doll-trade-demo",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "M11 棉花娃娃端到端演示：协议文档 §9E 的 11 步闭环，包 + MCP 编排（最终验收）",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "demo": "node demo.mjs",
+    "assert": "node assertions.mjs",
+    "demo:all": "bash run-demo.sh"
+  },
+  "dependencies": {
+    "@agent-trade/bt-catalog": "file:../../packages/bt-catalog",
+    "@agent-trade/demo-indexer": "file:../../apps/demo-indexer",
+    "@agent-trade/email": "file:../../adapters/email",
+    "@agent-trade/human-task": "file:../../adapters/human-task",
+    "@agent-trade/identity": "file:../../packages/identity",
+    "@agent-trade/local-store": "file:../../packages/local-store",
+    "@agent-trade/settlement": "file:../../adapters/settlement",
+    "@agent-trade/signed-files": "file:../../packages/signed-files",
+    "@modelcontextprotocol/client": "2.0.0"
+  }
+}
