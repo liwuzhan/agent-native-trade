@@ -22,13 +22,14 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 
 import { objectId, serialize, verifyFile } from '@agent-trade/signed-files';
-import type { SignedFile } from '@agent-trade/signed-files';
+import type { SignedFile, VerifyResult } from '@agent-trade/signed-files';
 import { IndexerError } from '@agent-trade/demo-indexer';
 import type { Indexer } from '@agent-trade/demo-indexer';
 
 import type { StationContext } from '../../types.js';
 import { extractCatalogTags } from './catalog-tags.js';
 import { IndexerState } from './state.js';
+import { reloadTrustRing } from './trust-ring.js';
 
 const RECEIPT_MAX_BYTES = 512 * 1024;
 const CATALOG_MAX_BYTES = 16 * 1024 * 1024;
@@ -48,6 +49,18 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * Extract the `VerifyResult` embedded in a local-store `putObject` failure
+ * (`putObject: verification failed (<result>)`). Returns `undefined` for any
+ * other error so non-verification failures keep their default (500) mapping.
+ */
+const VERIFY_FAILURE_RE = /verification failed \(([^)]+)\)/;
+function verificationFailureOf(err: unknown): VerifyResult | undefined {
+  if (!(err instanceof Error)) return undefined;
+  const match = VERIFY_FAILURE_RE.exec(err.message);
+  return match?.[1] as VerifyResult | undefined;
 }
 
 export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
@@ -101,6 +114,11 @@ export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
       return c.json({ error: 'wrong_object_type', message: `expected LISTING_REF, got ${String(file.object_type)}` }, 400);
     }
 
+    // Hot-reload the trust ring before verification: a key added or rotated on
+    // disk after openStore must be honoured without an indexer restart (the M3
+    // store only snapshots `.data/keys/*.key` into memory at openStore time).
+    reloadTrustRing(ctx);
+
     const result = verifyFile(file, resolveKey);
     if (result !== 'valid') {
       return c.json({ error: `verification failed (${result})`, verify_result: result }, 400);
@@ -125,7 +143,17 @@ export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
     };
 
     // Persist the fact (source of truth) — idempotent under the same object_id.
-    ctx.store.putObject(file);
+    // `putObject` re-verifies against the store's in-memory ring; a verification
+    // failure here is still a contract-level 400 (never an HTTP 500).
+    try {
+      ctx.store.putObject(file);
+    } catch (err) {
+      const failure = verificationFailureOf(err);
+      if (failure !== undefined) {
+        return c.json({ error: `verification failed (${failure})`, verify_result: failure }, 400);
+      }
+      throw err;
+    }
     state.addListingRef({
       object_id: id,
       content,

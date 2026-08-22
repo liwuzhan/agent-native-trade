@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildManifest, catalogHash } from '@agent-trade/bt-catalog';
 import type { Manifest } from '@agent-trade/bt-catalog';
 import { loadWeights, weightsHash } from '@agent-trade/demo-indexer';
+import { generateIdentity } from '@agent-trade/identity';
 import { openStore } from '@agent-trade/local-store';
 import { addSignature, buildObject, objectId } from '@agent-trade/signed-files';
 import type { SignedFile } from '@agent-trade/signed-files';
@@ -347,5 +348,65 @@ describe('indexer role (S2)', () => {
     const second = await startIndexer(ctx);
     const view2 = await fetch(`http://127.0.0.1:${second.port}/subjects/agent_seller`);
     expect(((await view2.json()) as { score: number }).score).toBe(25);
+  });
+
+  it('acceptance 6a: a key written into the trust ring while running is honoured without restart (200)', async () => {
+    const { dir, ctx } = await buildCtx();
+    attachWeights(dir, ctx, DEFAULT_WEIGHTS);
+    ctx.store.saveKey('agent_seller', sellerSeed);
+    const handle = await startIndexer(ctx);
+    const base = `http://127.0.0.1:${handle.port}`;
+
+    // A new identity arrives while the indexer is already running: drop its seed
+    // into the trust ring exactly as another station would, with no restart.
+    const newcomer = generateIdentity();
+    writeFileSync(
+      join(ctx.dataDir, '.data', 'keys', `${encodeURIComponent('agent_new')}.key`),
+      `${newcomer.secretKey}\n`,
+    );
+
+    const ref = makeListingRef({
+      publisher: 'agent_new',
+      secretKey: newcomer.secretKey,
+      catalogId: 'catalog-new',
+      catalogHash: `sha256:${'b'.repeat(64)}`,
+      itemId: 'item-new',
+    });
+    const res = await fetch(`${base}/announce/listing-ref`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(ref),
+    });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { status: string }).status).toBe('accepted');
+  });
+
+  it('acceptance 6b: a tampered envelope returns 400 + verify_result (not 500)', async () => {
+    const { dir, ctx } = await buildCtx();
+    attachWeights(dir, ctx, DEFAULT_WEIGHTS);
+    ctx.store.saveKey('agent_seller', sellerSeed);
+    const handle = await startIndexer(ctx);
+    const base = `http://127.0.0.1:${handle.port}`;
+
+    const ref = makeListingRef({
+      publisher: 'agent_seller',
+      secretKey: sellerSeed,
+      catalogId: 'catalog-a',
+      catalogHash: `sha256:${'a'.repeat(64)}`,
+      itemId: 'item-a',
+    });
+    const tampered = structuredClone(ref) as SignedFile;
+    // Replace with a schema-valid (86-char base64url) but cryptographically
+    // wrong signature, so it reaches the signature step rather than the schema.
+    tampered.signatures = [{ ...tampered.signatures[0]!, signature: 'A'.repeat(86) }];
+
+    const res = await fetch(`${base}/announce/listing-ref`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(tampered),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; verify_result: string };
+    expect(body.verify_result).toBe('fail:signature_invalid');
   });
 });

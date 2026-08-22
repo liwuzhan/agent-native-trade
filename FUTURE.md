@@ -140,3 +140,9 @@
 - 演示链路短，角色内部以 dht:false + 无 tracker 播种（magnet 仅作 distribution_refs），买方目录下载走 HTTP 镜像（降级路径恒被断言）；BT_TIMEOUT 常量保留。
 - indexer 通告验签的 resolveKey 只从 .data/keys/<id>.key（种子）解析；demo 启动前预写测试身份种子到 indexer/integrator 的 .data/keys/；.data/peers/*.pub 为只读公钥导入的替代路径（README 已说明）。
 - 演示 DEAL/回执用固定 UUID v7 与 issued_at（object_id 可复现）；身份用测试向量种子 + 虚构站点种子。
+
+## 取舍登记（S6 + indexer 修复）
+
+- 干净会话验收发现两个缺陷：①信任环仅 openStore 启动载入（运行中加 key 无效）；②putObject 验证错误逃逸为 HTTP 500（契约要求 400+verify_result）。均已在 indexer 角色修复（trust-ring.ts 热加载 + 错误映射），方案 b（indexer 内重扫+saveKey）不动 local-store 表面（其"恰好 8 方法"断言测试不失效）。
+- peers 环（.data/peers/*.pub）保持 openStore 时载入语义不变（无注入方法、本契约不可观测）。
+- 验收记录见 docs/s6-acceptance.md（含缺陷发现与修复摘要）。
