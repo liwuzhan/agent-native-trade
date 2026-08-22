@@ -60,3 +60,12 @@
 - tasks 镜像表用 Node 内置 `node:sqlite`（Node 25 打印 ExperimentalWarning，已抑制）——注意它与 M3 的 better-sqlite3 是**两个 sqlite 绑定访问同一 index.sqlite 文件**；测试全绿，若未来出现 SQLITE_BUSY 再统一到一个绑定。
 - tasks 表是可丢弃镜像，M3 `rebuildIndex()` 后由本适配器惰性重建。
 - task_id 全入口强制 uuid v7 格式（路径穿越防护）；额外导出 uuidv7 工具。
+
+## 取舍登记（M8 demo-indexer）
+
+- 快照签名用协议外类型前缀 `INDEX_SNAPSHOT`（不新增协议类型）；快照 = plain JSON + detached .sig，站点公钥写入快照 body 使离线验签自含。
+- signed-files 未导出 signingInputBytes，snapshot.ts 内 10 行复刻 spec §2 布局（后续若多个模块需要，应上提为 signed-files 公共导出）。
+- 证据档位（bundle/referenced/none）在收录时判定为事实，权重只重新定价；weights.json 含缺失 deal_ref/结算事件的罚分项。
+- 去重 = body_hash 唯一 + receipt_id 唯一（同 id 异内容 → HTTP 409）。
+- 回执索引/目录存档在自有 .data/receipts.sqlite（local-store 只承担事实文件+信任环+站点身份）。
+- 额外提供 `indexer serve` 子命令（卡片 CLI 只列 export/query）。

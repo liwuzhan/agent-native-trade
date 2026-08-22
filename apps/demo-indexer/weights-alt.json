@@ -1,0 +1,22 @@
+{
+  "$comment": "Alternate weight config for the dual-instance demonstration (acceptance 2): relaxed requirements, evidence-heavy scoring, no reference penalties. Same receipt set under this config must score differently than under weights.json.",
+  "require_deal_ref": false,
+  "require_settlement_event": false,
+  "scores": {
+    "evidence": {
+      "bundle": 60,
+      "referenced": 30,
+      "none": 5
+    },
+    "deal_ref_present": 0,
+    "missing_deal_ref": 0,
+    "settlement_present": 0,
+    "missing_settlement": 0,
+    "rating": {
+      "POSITIVE": 20,
+      "NEUTRAL": 5,
+      "NEGATIVE": -20,
+      "FACT_ONLY": 1
+    }
+  }
+}

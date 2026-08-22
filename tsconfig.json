@@ -4,6 +4,7 @@
     { "path": "packages/identity" },
     { "path": "packages/signed-files" },
     { "path": "packages/local-store" },
-    { "path": "packages/bt-catalog" }
+    { "path": "packages/bt-catalog" },
+    { "path": "apps/demo-indexer" }
   ]
 }

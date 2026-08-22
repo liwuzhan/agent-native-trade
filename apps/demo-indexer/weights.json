@@ -1,0 +1,22 @@
+{
+  "$comment": "demo-indexer default weight config (module M8). All scoring rules live here; a different config must produce different scores (acceptance 2). require_deal_ref / require_settlement_event gate whether the presence of the reference earns its bonus and whether its absence is penalized.",
+  "require_deal_ref": true,
+  "require_settlement_event": true,
+  "scores": {
+    "evidence": {
+      "bundle": 40,
+      "referenced": 20,
+      "none": 0
+    },
+    "deal_ref_present": 10,
+    "missing_deal_ref": -10,
+    "settlement_present": 10,
+    "missing_settlement": -10,
+    "rating": {
+      "POSITIVE": 10,
+      "NEUTRAL": 2,
+      "NEGATIVE": -10,
+      "FACT_ONLY": 0
+    }
+  }
+}

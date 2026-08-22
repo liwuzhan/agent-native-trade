@@ -1,0 +1,41 @@
+{
+  "name": "@agent-trade/demo-indexer",
+  "version": "0.2.0",
+  "description": "agent-trade/0.2 demo indexer: receipt intake / verification / weighted scoring / signed static export / offline query CLI / catalog archive mirror (module M8)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": { "node": ">=24" },
+  "bin": { "indexer": "./dist/cli.js" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "weights.json", "weights-alt.json"],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "pretest": "tsc -b",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-trade/bt-catalog": "file:../../packages/bt-catalog",
+    "@agent-trade/identity": "file:../../packages/identity",
+    "@agent-trade/local-store": "file:../../packages/local-store",
+    "@agent-trade/signed-files": "file:../../packages/signed-files",
+    "@hono/node-server": "^1.14.2",
+    "better-sqlite3": "^13.0.3",
+    "hono": "^4.11.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
