@@ -1,0 +1,17 @@
+# S5 演示 · 检索站（indexer）配置
+#
+# 本文件由 station-demo.sh 以 apps/station/examples/ 为工作目录启动，
+# 所有相对路径（identity_seed_file / data_dir / weights_file）都相对该目录解析。
+# 注意：`data_dir` 是 `.data/` 的父目录，不是 `.data/` 本身。
+agent_id: agent_indexer
+identity_seed_file: runlog/identity/indexer.seed
+data_dir: runlog/indexer
+http:
+  host: 127.0.0.1
+  port: 19781
+log:
+  level: info
+role: indexer
+indexer:
+  # M8 权重文件（评分规则）。默认权重：bundle=40 + deal_ref=10 + settlement=10 + POSITIVE=10。
+  weights_file: ../../demo-indexer/weights.json

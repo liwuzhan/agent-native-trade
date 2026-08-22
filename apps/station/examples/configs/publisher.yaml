@@ -1,0 +1,24 @@
+# S5 演示 · 发布站（publisher）配置
+#
+# 身份使用 protocol/test-vectors/vectors.json 的 agent_seller 种子（仅测试用，非真实秘密），
+# 由 demo.mjs 在启动前写入 runlog/identity/publisher.seed（32 字节原始种子）。
+agent_id: agent_seller
+identity_seed_file: runlog/identity/publisher.seed
+data_dir: runlog/publisher
+http:
+  host: 127.0.0.1
+  port: 19782
+log:
+  level: info
+role: publisher
+publisher:
+  # 虚构"家电维修"服务目录（catalog.json 带 metadata.tags: ["朝阳","家电维修"]），
+  # 目录内容由 demo.mjs 在启动前生成到 runlog/publisher-catalog/。
+  catalog_dir: runlog/publisher-catalog
+  # 单机演示不依赖外部 tracker / DHT；WebTorrent 仅本地播种生成 magnet（供 distribution_refs）。
+  trackers: []
+  # 启动即向索引站通告 LISTING_REF（S1 契约 POST /announce/listing-ref）。
+  announce_to:
+    - "http://127.0.0.1:19781"
+  watch: false
+  dht: false

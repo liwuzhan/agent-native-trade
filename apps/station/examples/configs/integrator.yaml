@@ -1,0 +1,28 @@
+# S5 演示 · 整合商（integrator）配置
+#
+# 身份为演示虚构种子 agent_integrator（demo.mjs 启动前写入 seed 文件）。
+# 整合商以发布站的 LISTING_REF 为 member，合成"北京家电维修专题"目录并通告索引站。
+agent_id: agent_integrator
+identity_seed_file: runlog/identity/integrator.seed
+data_dir: runlog/integrator
+http:
+  host: 127.0.0.1
+  port: 19783
+log:
+  level: info
+role: integrator
+integrator:
+  theme: 北京家电维修专题
+  # 专题目录 metadata.tags：城市级聚合（发布站目录标签为 朝阳+家电维修）。
+  tags:
+    - 北京
+    - 家电维修
+  # member 源：发布站的 LISTING_REF（http(s) URL，整合商启动时抓取并验签）。
+  members:
+    - "http://127.0.0.1:19782/listing-ref"
+  # 演示链路更短：不开启 BT 再播种，目录通过 HTTP 镜像（PUT /catalogs/:hash）供检索站。
+  reseed: false
+  announce_to:
+    - "http://127.0.0.1:19781"
+  trackers: []
+  dht: false

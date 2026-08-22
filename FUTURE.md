@@ -133,3 +133,10 @@
 - 整合商专题目录只经 HTTPS distribution_refs 分发，不做 BT 播种；reseed 仅针对成员目录。
 - 成员公钥解析复刻 M3 信任环（saveKey 派生优先，回退 .data/peers/<id>.pub）。
 - re-seed 时 torrent 按目录 basename 加前缀，需对下载目录取唯一顶层目录再 seed，否则 catalog_hash 不一致（已修复并测试）。
+
+## 取舍登记（S5 三角色互演）
+
+- 演示主题按任务要点改为"家电维修/北京家电维修专题"（卡片原文为棉花娃娃/春季专题）。
+- 演示链路短，角色内部以 dht:false + 无 tracker 播种（magnet 仅作 distribution_refs），买方目录下载走 HTTP 镜像（降级路径恒被断言）；BT_TIMEOUT 常量保留。
+- indexer 通告验签的 resolveKey 只从 .data/keys/<id>.key（种子）解析；demo 启动前预写测试身份种子到 indexer/integrator 的 .data/keys/；.data/peers/*.pub 为只读公钥导入的替代路径（README 已说明）。
+- 演示 DEAL/回执用固定 UUID v7 与 issued_at（object_id 可复现）；身份用测试向量种子 + 虚构站点种子。
