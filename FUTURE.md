@@ -124,3 +124,12 @@
 - S2 黄页数据源 = 已镜像目录（PUT 收录）且有非空 tags；announce 的 listing-ref 补充元信息但非成员前提；weights 启动读一次、重启生效；M8 内核 import 复用、HTTP 为薄 adapter 重注册（PUT /catalogs 带 tag 提取副作用）。
 - S3 publisher：通告带超时+有限重试、失败只记日志不阻塞做种；目录变更为轮询 watch；seed 长驻句柄测试中 stop() 干净回收。
 - 新增依赖：apps/station 增 hono、@hono/node-server、better-sqlite3、@agent-trade/demo-indexer(file:)。
+
+## 取舍登记（S4 integrator）
+
+- config.integrator 补可选键 `announce_to`/`trackers`/`dht`/`announce_timeout_ms`/`announce_retries`（卡片漏列 announce_to）；`reseed` 默认 false；`refresh_interval_ms` 缺省=仅手动。
+- 专题目录 `item_revision` 恒 0，object_id 由 catalog_hash 驱动。
+- `GET /catalog` 返回 M8 兼容完整归档（manifest + files base64），便于索引站字节一致镜像并提取 tags。
+- 整合商专题目录只经 HTTPS distribution_refs 分发，不做 BT 播种；reseed 仅针对成员目录。
+- 成员公钥解析复刻 M3 信任环（saveKey 派生优先，回退 .data/peers/<id>.pub）。
+- re-seed 时 torrent 按目录 basename 加前缀，需对下载目录取唯一顶层目录再 seed，否则 catalog_hash 不一致（已修复并测试）。

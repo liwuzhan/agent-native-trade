@@ -29,6 +29,15 @@ export type {
 } from './roles/publisher/index.js';
 export { createIndexerRole } from './roles/indexer/index.js';
 export type { IndexerRoleHandle } from './roles/indexer/index.js';
+export { createIntegratorRole } from './roles/integrator/index.js';
+export type {
+  IntegratorConfig,
+  IntegratorHandle,
+  MemberSummary,
+  RefreshResult,
+  RejectedMember,
+  ReseedOutcome,
+} from './roles/integrator/index.js';
 export { loadOrCreateSeed } from './identity.js';
 export type { IdentityResult } from './identity.js';
 export { createLogger } from './logger.js';
