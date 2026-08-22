@@ -16,3 +16,22 @@ node tools/generate-test-vectors.mjs     # 生成/再生成测试向量
 node tools/verify-test-vectors.mjs       # 用 node:crypto 验证全部向量
 bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实现）
 ```
+
+## 模块状态（2026-08-22）
+
+| 模块 | 状态 | 测试 |
+|---|---|---|
+| M0 protocol（schemas + test-vectors） | ✅ | 三实现互验（node:crypto / OpenSSL / PyNaCl） |
+| M1 identity | ✅ | 18/18 |
+| M2 signed-files | ✅ | 25/25 |
+| M3 local-store | ✅ | 19/19 |
+| M4 bt-catalog | ✅ | 21/21（DHT 验收为手动脚本） |
+| M5 email | ✅ | 47 单元 + GreenMail 集成（CI） |
+| M6 settlement | ✅ | 12/12 |
+| M7 human-task | ✅ | 23/23 |
+| M8 demo-indexer | ✅ | 30/30 |
+| M9 mcp-server | 🔨 开发中 | — |
+| M10 DSH 集成 | ⏳ 待启动（需 DSH 环境探测） | — |
+| M11 棉花娃娃端到端 | ⏳ 待启动 | — |
+
+模块卡片见 `docs/module-cards/`。
