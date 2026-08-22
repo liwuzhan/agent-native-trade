@@ -1,0 +1,37 @@
+{
+  "name": "@agent-trade/human-task",
+  "version": "0.2.0",
+  "description": "Local human-task adapter: open tasks, record human results, mint signed TRADE_EVENTs from completed tasks (module M7)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-trade/identity": "file:../../packages/identity",
+    "@agent-trade/local-store": "file:../../packages/local-store",
+    "@agent-trade/signed-files": "file:../../packages/signed-files"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

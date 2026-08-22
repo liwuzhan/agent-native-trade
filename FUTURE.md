@@ -52,3 +52,11 @@
 - manual-settlement 的 `confirm` 自建并签发 PAYMENT_CONFIRMED，不调用 M7 的 toEvent（M7 并行开发，仅按 HumanTaskStore 接口注入；任务须存在且 DONE）。
 - test-voucher 凭证登记为适配器实例级内存注册表，不持久化（虚构凭证）。
 - 秘密扫描范围含 .data/objects 与 index.sqlite；keys/ 有意排除（0600 私钥环，非公开数据）。
+
+## 取舍登记（M7 human-task）
+
+- `createHumanTaskStore(store, opts?)` 增加可选 `opts.dir`（Store 接口不暴露数据根目录，缺省落 process.cwd()）；M6/调用方接线时传 `{ dir }` 指向同一 .data/ 根。
+- toEvent 要求签发者公钥先经 `store.saveKey` 注册（M3 信任环统一要求）。
+- tasks 镜像表用 Node 内置 `node:sqlite`（Node 25 打印 ExperimentalWarning，已抑制）——注意它与 M3 的 better-sqlite3 是**两个 sqlite 绑定访问同一 index.sqlite 文件**；测试全绿，若未来出现 SQLITE_BUSY 再统一到一个绑定。
+- tasks 表是可丢弃镜像，M3 `rebuildIndex()` 后由本适配器惰性重建。
+- task_id 全入口强制 uuid v7 格式（路径穿越防护）；额外导出 uuidv7 工具。
