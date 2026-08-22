@@ -108,3 +108,11 @@
 - **动态沙箱教训**：`ctx.clearTimeout` 不存在（timer 用 disposer 返回），流回调未兜底会带崩宿主进程——INSPECTION.md D11 已记；静态插件不受限。
 - **未做**：client UI（工具卡片默认呈现）、Event 通知、真实 SMTP/IMAP 配置化接入（env 占位）、toolTimeout 超时后的 daemon 优雅重启策略（当前 terminate 后下次重建）。
 - **人工验收项**（发布前）：真实 preset 会话各开一买方/卖方跑通 demo（persona 生效、技能目录可见性、tool 列表 18 工具）——standingKeyFor 挂载校验已过，但真实会话呈现待人工确认（INSPECTION.md A5/D12）。
+
+## 取舍登记（S1 station 骨架）
+
+- `data_dir` 语义 = `.data/` 的**父目录**（openStore 自建 `.data/` 子目录）；示例应写 `data_dir: .`，S5 演示配置按此。
+- role 双重来源（CLI 位置参数与 config.role）不一致即报错；env 覆盖用显式键表消歧（STATION_HTTP_PORT→http.port，STATION_AGENT_ID→agent_id）。
+- 基础 schema 全必填无默认值；"最小 config" = 仅基座字段。
+- seed 文件为原始 32 字节二进制，读取后 base64url 编码进 publicKeyFromSeed。
+- signed-files 与 bt-catalog 在 S1 仅声明未消费（S2+ 使用）。

@@ -7,6 +7,6 @@
     { "path": "packages/bt-catalog" },
     { "path": "apps/demo-indexer" },
     { "path": "apps/mcp-server" },
-    { "path": "integrations/deepseek-harness/plugin" }
+    { "path": "apps/station" }
   ]
 }

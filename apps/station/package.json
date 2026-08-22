@@ -1,0 +1,38 @@
+{
+  "name": "@agent-trade/station",
+  "version": "0.2.0",
+  "description": "agent-trade/0.2 station skeleton: config load, CLI role dispatch, shared daemon base and the fixed three-role announce contract (module S1)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": { "node": ">=24" },
+  "bin": { "station": "./dist/cli.js" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "pretest": "tsc -b",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-trade/bt-catalog": "file:../../packages/bt-catalog",
+    "@agent-trade/identity": "file:../../packages/identity",
+    "@agent-trade/local-store": "file:../../packages/local-store",
+    "@agent-trade/signed-files": "file:../../packages/signed-files",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
