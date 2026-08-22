@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Agent-native open trade loop protocol: reference implementation",
   "license": "Apache-2.0",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "packageManager": "pnpm@10",
   "scripts": {
     "build": "tsc -b",
@@ -13,5 +15,8 @@
     "vectors": "node tools/generate-test-vectors.mjs",
     "vectors:verify": "node tools/verify-test-vectors.mjs",
     "vectors:verify:openssl": "bash tools/verify-vectors-openssl.sh"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
   }
 }
