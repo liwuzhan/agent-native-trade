@@ -30,8 +30,8 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | M6 settlement | ✅ | 12/12 |
 | M7 human-task | ✅ | 23/23 |
 | M8 demo-indexer | ✅ | 30/30 |
-| M9 mcp-server | 🔨 开发中 | — |
-| M10 DSH 集成 | ⏳ 待启动（需 DSH 环境探测） | — |
-| M11 棉花娃娃端到端 | ⏳ 待启动 | — |
+| M9 mcp-server | ✅ | 28/28（含 stdio 冒烟 + 12 红线） |
+| M10 DSH 集成 | ⏳ 推迟（需创造模式会话探测 cordis 接口） | — |
+| M11 棉花娃娃端到端 | ✅ | 106 断言全绿（run-demo.sh） |
 
 模块卡片见 `docs/module-cards/`。
