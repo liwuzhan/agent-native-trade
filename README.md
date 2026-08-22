@@ -47,3 +47,7 @@ export AGENT_TRADE_REPO="$(pwd)"                        # DSH 会话进程环境
 
 
 模块卡片见 `docs/module-cards/`。
+
+## 模板站（2026-08-23）
+
+`apps/station/`：单工件三角色（indexer / publisher / integrator），配置即角色。S1–S6 全部完成：三角色 46 测试、互演 demo（`examples/station-demo.sh`）、"5 分钟起站"文档、SKILL.md 六个（干净会话实操验收通过，见 `docs/s6-acceptance.md`）。
