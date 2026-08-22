@@ -1,0 +1,284 @@
+{
+  "spec": "agent-trade/0.2",
+  "warning": "私钥种子仅用于测试向量，禁止用于生产。",
+  "identities": {
+    "agent_buyer": {
+      "public_key": "b3bUvKnJUyGE6VBtHH7doUnCI3rTSx_xxT9cVO_JzMw",
+      "seed": "sLdTjj3EA9ApkLU3JqJJ_dEi273L2ooTk9E34ylsPQU"
+    },
+    "agent_seller": {
+      "public_key": "XomeJJLko_ZxqF2GAYWKZ0Nb-lFKRaDcq7WP5wKJPxo",
+      "seed": "KonHOvu2k3_LGwqohnSusfSlU7hyO7MrSJFjP_bRqYE"
+    }
+  },
+  "cases": [
+    {
+      "name": "listing-ref-valid",
+      "object_type": "LISTING_REF",
+      "file": {
+        "protocol": "agent-trade/0.2",
+        "object_type": "LISTING_REF",
+        "body": {
+          "publisher": "agent_seller",
+          "catalog_id": "pudong_fasteners_week_34",
+          "catalog_hash": "sha256:872e7550f3136e20b0b09a2fd893fb7642120a10f7afdd775a8baab925a6b5f8",
+          "item_id": "bolt_M8_304_40",
+          "item_revision": 7,
+          "distribution_refs": [
+            {
+              "type": "magnet",
+              "uri": "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567"
+            },
+            {
+              "type": "https",
+              "uri": "https://indexer.example.com/catalogs/pudong_fasteners_week_34.tar"
+            }
+          ]
+        },
+        "body_hash": "sha256:b30f40faa759bd531a13528087f4b6c46f983383ae17ba8fe556f6c74d00392b",
+        "signatures": [
+          {
+            "signer": "agent_seller",
+            "algorithm": "Ed25519",
+            "signature": "p2SP1vFSi47z79NdYbH1dAq9Oht4MC0j_b5blYG2t9lk3AQFf2WpXrqH3-tshJrY-eOFZY8nD8LDKAdXAHBqAA",
+            "issued_at": "2026-08-22T02:00:00Z"
+          }
+        ]
+      },
+      "object_id": "sha256:9f6b6feedc2ddf9e27765a5b1a975c61e32fcd1191d6b552389c043cc56844f6",
+      "expect": "valid"
+    },
+    {
+      "name": "deal-valid",
+      "object_type": "DEAL",
+      "file": {
+        "protocol": "agent-trade/0.2",
+        "object_type": "DEAL",
+        "body": {
+          "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+          "buyer": "agent_buyer",
+          "seller": "agent_seller",
+          "subject": {
+            "listing_ref": "sha256:9f6b6feedc2ddf9e27765a5b1a975c61e32fcd1191d6b552389c043cc56844f6",
+            "description": "M8×40 304不锈钢螺栓",
+            "quantity": 10000,
+            "acceptance_conditions": [
+              "材质符合约定",
+              "数量误差不超过1%"
+            ]
+          },
+          "settlement": {
+            "asset": "iso4217:CNY",
+            "amount": "3200.00",
+            "method": "manual-settlement",
+            "executor_ref": "human_finance_department"
+          },
+          "fulfillment": {
+            "deadline": "2026-09-10T00:00:00Z",
+            "destination_ref": "private_address_01",
+            "carrier_ref": "seller_selected"
+          }
+        },
+        "body_hash": "sha256:3db39c3a43986ef4b3905c7d25247becf607d8fa4cb0fe24826300d07cc66c8d",
+        "signatures": [
+          {
+            "signer": "agent_buyer",
+            "algorithm": "Ed25519",
+            "signature": "IKITCO5G8RR57GmNlpfbbeHxQ1lnBRcVFGAkk-wE-S2dwzFJcaUiZ_FJXbEXAI2-x_JWLxPuXVLH7_MP4G3dAg",
+            "issued_at": "2026-08-22T03:00:00Z"
+          },
+          {
+            "signer": "agent_seller",
+            "algorithm": "Ed25519",
+            "signature": "RsmxibQ01IeKkjhShaT-vcYAtNJqLRtSwFgL-NtAkU9E3Md0i-9o-l7sNImX66eQlxeWZ365aqPducxdRK3hCw",
+            "issued_at": "2026-08-22T03:05:00Z"
+          }
+        ]
+      },
+      "object_id": "sha256:79e9d20df822351784424c7882cf423b5a3d7bcfafb64782065f084741dcb1c4",
+      "expect": "valid"
+    },
+    {
+      "name": "trade-event-valid",
+      "object_type": "TRADE_EVENT",
+      "file": {
+        "protocol": "agent-trade/0.2",
+        "object_type": "TRADE_EVENT",
+        "body": {
+          "event_id": "01a02a10-d06d-782d-9875-cbd43cf5f25c",
+          "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+          "event_type": "PAYMENT_CONFIRMED",
+          "actor": "agent_seller",
+          "occurred_at": "2026-08-24T08:30:00Z",
+          "evidence": {
+            "method": "manual-settlement",
+            "attested_by": "human_finance_department"
+          },
+          "message": "人类财务确认收款 3200.00 CNY"
+        },
+        "body_hash": "sha256:125f4d7edca86fa55bb9f614ffb73051efdb61e924e8f0d3968166775e66adc3",
+        "signatures": [
+          {
+            "signer": "agent_seller",
+            "algorithm": "Ed25519",
+            "signature": "gdLwZpB8n2aFBA8ehm0sE_psZSsf0a49IUjLZNC32AAhCg4semq6JCsKAdylNpCcZCBaYquGhuf7Dm1kN1dQAw",
+            "issued_at": "2026-08-24T08:31:00Z"
+          }
+        ]
+      },
+      "object_id": "sha256:bf57ca39f2f8ddd85e5444c4efd167f141d083e1da91f33d9c68811973a57c44",
+      "expect": "valid"
+    },
+    {
+      "name": "trade-receipt-valid",
+      "object_type": "TRADE_RECEIPT",
+      "file": {
+        "protocol": "agent-trade/0.2",
+        "object_type": "TRADE_RECEIPT",
+        "body": {
+          "receipt_id": "01a02a10-d06d-700a-959c-02bd13719b83",
+          "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+          "contract_hash": "sha256:3db39c3a43986ef4b3905c7d25247becf607d8fa4cb0fe24826300d07cc66c8d",
+          "subject": "agent_seller",
+          "direction": "buyer_to_seller",
+          "result": "COMPLETED",
+          "rating": "POSITIVE",
+          "comment": "商品符合约定，三日内发货",
+          "metrics": {
+            "specification_match": true,
+            "delivery_hours": 72,
+            "communication_score": 4,
+            "overall_score": 5
+          },
+          "transaction_summary": {
+            "category": "fasteners",
+            "asset": "iso4217:CNY",
+            "amount_disclosure": "range",
+            "amount_range": [
+              "3000.00",
+              "4000.00"
+            ]
+          },
+          "evidence": {
+            "deal_ref": {
+              "object_id": "sha256:79e9d20df822351784424c7882cf423b5a3d7bcfafb64782065f084741dcb1c4",
+              "body_hash": "sha256:3db39c3a43986ef4b3905c7d25247becf607d8fa4cb0fe24826300d07cc66c8d"
+            },
+            "settlement_event_ref": "sha256:bf57ca39f2f8ddd85e5444c4efd167f141d083e1da91f33d9c68811973a57c44"
+          }
+        },
+        "body_hash": "sha256:370ffa2f812c297e047c045e813b6af05490bee2a5b69ca016463180d71f4cb3",
+        "signatures": [
+          {
+            "signer": "agent_buyer",
+            "algorithm": "Ed25519",
+            "signature": "TLVnL_AQ_vNwyaER03m-U4WWs_luUA4Imjmh6hkBixCOUM2UtL5cS0WDumzinmHwbf_lUJ1D_eJ5mqufTSy3AA",
+            "issued_at": "2026-09-02T02:00:00Z"
+          }
+        ]
+      },
+      "object_id": "sha256:e78025ea3c62c49fc52b1c275febe7800457750eb96380f75c61256d0573cd9a",
+      "expect": "valid"
+    },
+    {
+      "name": "deal-tampered-body-keep-hash",
+      "object_type": "DEAL",
+      "file": {
+        "protocol": "agent-trade/0.2",
+        "object_type": "DEAL",
+        "body": {
+          "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+          "buyer": "agent_buyer",
+          "seller": "agent_seller",
+          "subject": {
+            "listing_ref": "sha256:9f6b6feedc2ddf9e27765a5b1a975c61e32fcd1191d6b552389c043cc56844f6",
+            "description": "M8×40 316不锈钢螺栓",
+            "quantity": 10000,
+            "acceptance_conditions": [
+              "材质符合约定",
+              "数量误差不超过1%"
+            ]
+          },
+          "settlement": {
+            "asset": "iso4217:CNY",
+            "amount": "3200.00",
+            "method": "manual-settlement",
+            "executor_ref": "human_finance_department"
+          },
+          "fulfillment": {
+            "deadline": "2026-09-10T00:00:00Z",
+            "destination_ref": "private_address_01",
+            "carrier_ref": "seller_selected"
+          }
+        },
+        "body_hash": "sha256:3db39c3a43986ef4b3905c7d25247becf607d8fa4cb0fe24826300d07cc66c8d",
+        "signatures": [
+          {
+            "signer": "agent_buyer",
+            "algorithm": "Ed25519",
+            "signature": "IKITCO5G8RR57GmNlpfbbeHxQ1lnBRcVFGAkk-wE-S2dwzFJcaUiZ_FJXbEXAI2-x_JWLxPuXVLH7_MP4G3dAg",
+            "issued_at": "2026-08-22T03:00:00Z"
+          },
+          {
+            "signer": "agent_seller",
+            "algorithm": "Ed25519",
+            "signature": "RsmxibQ01IeKkjhShaT-vcYAtNJqLRtSwFgL-NtAkU9E3Md0i-9o-l7sNImX66eQlxeWZ365aqPducxdRK3hCw",
+            "issued_at": "2026-08-22T03:05:00Z"
+          }
+        ]
+      },
+      "expect": "fail:body_hash_mismatch",
+      "tamper": "description 被改，body_hash 与签名原样保留"
+    },
+    {
+      "name": "deal-tampered-body-rehash",
+      "object_type": "DEAL",
+      "file": {
+        "protocol": "agent-trade/0.2",
+        "object_type": "DEAL",
+        "body": {
+          "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+          "buyer": "agent_buyer",
+          "seller": "agent_seller",
+          "subject": {
+            "listing_ref": "sha256:9f6b6feedc2ddf9e27765a5b1a975c61e32fcd1191d6b552389c043cc56844f6",
+            "description": "M8×40 316不锈钢螺栓",
+            "quantity": 10000,
+            "acceptance_conditions": [
+              "材质符合约定",
+              "数量误差不超过1%"
+            ]
+          },
+          "settlement": {
+            "asset": "iso4217:CNY",
+            "amount": "3200.00",
+            "method": "manual-settlement",
+            "executor_ref": "human_finance_department"
+          },
+          "fulfillment": {
+            "deadline": "2026-09-10T00:00:00Z",
+            "destination_ref": "private_address_01",
+            "carrier_ref": "seller_selected"
+          }
+        },
+        "body_hash": "sha256:b58e6d4042f533aa807ed717f4bba3127e96218deb303001405ed079afaebfa9",
+        "signatures": [
+          {
+            "signer": "agent_buyer",
+            "algorithm": "Ed25519",
+            "signature": "IKITCO5G8RR57GmNlpfbbeHxQ1lnBRcVFGAkk-wE-S2dwzFJcaUiZ_FJXbEXAI2-x_JWLxPuXVLH7_MP4G3dAg",
+            "issued_at": "2026-08-22T03:00:00Z"
+          },
+          {
+            "signer": "agent_seller",
+            "algorithm": "Ed25519",
+            "signature": "RsmxibQ01IeKkjhShaT-vcYAtNJqLRtSwFgL-NtAkU9E3Md0i-9o-l7sNImX66eQlxeWZ365aqPducxdRK3hCw",
+            "issued_at": "2026-08-22T03:05:00Z"
+          }
+        ]
+      },
+      "expect": "fail:signature_invalid",
+      "tamper": "description 被改且 body_hash 重算，签名输入失配"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "protocol": "agent-trade/0.2",
+  "object_type": "DEAL",
+  "body": {
+    "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+    "buyer": "agent_buyer",
+    "seller": "agent_seller",
+    "subject": {
+      "listing_ref": "sha256:9f6b6feedc2ddf9e27765a5b1a975c61e32fcd1191d6b552389c043cc56844f6",
+      "description": "M8×40 316不锈钢螺栓",
+      "quantity": 10000,
+      "acceptance_conditions": [
+        "材质符合约定",
+        "数量误差不超过1%"
+      ]
+    },
+    "settlement": {
+      "asset": "iso4217:CNY",
+      "amount": "3200.00",
+      "method": "manual-settlement",
+      "executor_ref": "human_finance_department"
+    },
+    "fulfillment": {
+      "deadline": "2026-09-10T00:00:00Z",
+      "destination_ref": "private_address_01",
+      "carrier_ref": "seller_selected"
+    }
+  },
+  "body_hash": "sha256:3db39c3a43986ef4b3905c7d25247becf607d8fa4cb0fe24826300d07cc66c8d",
+  "signatures": [
+    {
+      "signer": "agent_buyer",
+      "algorithm": "Ed25519",
+      "signature": "IKITCO5G8RR57GmNlpfbbeHxQ1lnBRcVFGAkk-wE-S2dwzFJcaUiZ_FJXbEXAI2-x_JWLxPuXVLH7_MP4G3dAg",
+      "issued_at": "2026-08-22T03:00:00Z"
+    },
+    {
+      "signer": "agent_seller",
+      "algorithm": "Ed25519",
+      "signature": "RsmxibQ01IeKkjhShaT-vcYAtNJqLRtSwFgL-NtAkU9E3Md0i-9o-l7sNImX66eQlxeWZ365aqPducxdRK3hCw",
+      "issued_at": "2026-08-22T03:05:00Z"
+    }
+  ]
+}

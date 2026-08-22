@@ -1,0 +1,25 @@
+{
+  "protocol": "agent-trade/0.2",
+  "object_type": "TRADE_EVENT",
+  "body": {
+    "event_id": "01a02a10-d06d-782d-9875-cbd43cf5f25c",
+    "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+    "event_type": "PAYMENT_CONFIRMED",
+    "actor": "agent_seller",
+    "occurred_at": "2026-08-24T08:30:00Z",
+    "evidence": {
+      "method": "manual-settlement",
+      "attested_by": "human_finance_department"
+    },
+    "message": "人类财务确认收款 3200.00 CNY"
+  },
+  "body_hash": "sha256:125f4d7edca86fa55bb9f614ffb73051efdb61e924e8f0d3968166775e66adc3",
+  "signatures": [
+    {
+      "signer": "agent_seller",
+      "algorithm": "Ed25519",
+      "signature": "gdLwZpB8n2aFBA8ehm0sE_psZSsf0a49IUjLZNC32AAhCg4semq6JCsKAdylNpCcZCBaYquGhuf7Dm1kN1dQAw",
+      "issued_at": "2026-08-24T08:31:00Z"
+    }
+  ]
+}

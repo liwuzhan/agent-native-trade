@@ -1,0 +1,45 @@
+{
+  "protocol": "agent-trade/0.2",
+  "object_type": "TRADE_RECEIPT",
+  "body": {
+    "receipt_id": "01a02a10-d06d-700a-959c-02bd13719b83",
+    "trade_id": "01a02a10-d06d-7306-8a94-868702c2611e",
+    "contract_hash": "sha256:3db39c3a43986ef4b3905c7d25247becf607d8fa4cb0fe24826300d07cc66c8d",
+    "subject": "agent_seller",
+    "direction": "buyer_to_seller",
+    "result": "COMPLETED",
+    "rating": "POSITIVE",
+    "comment": "商品符合约定，三日内发货",
+    "metrics": {
+      "specification_match": true,
+      "delivery_hours": 72,
+      "communication_score": 4,
+      "overall_score": 5
+    },
+    "transaction_summary": {
+      "category": "fasteners",
+      "asset": "iso4217:CNY",
+      "amount_disclosure": "range",
+      "amount_range": [
+        "3000.00",
+        "4000.00"
+      ]
+    },
+    "evidence": {
+      "deal_ref": {
+        "object_id": "sha256:79e9d20df822351784424c7882cf423b5a3d7bcfafb64782065f084741dcb1c4",
+        "body_hash": "sha256:3db39c3a43986ef4b3905c7d25247becf607d8fa4cb0fe24826300d07cc66c8d"
+      },
+      "settlement_event_ref": "sha256:bf57ca39f2f8ddd85e5444c4efd167f141d083e1da91f33d9c68811973a57c44"
+    }
+  },
+  "body_hash": "sha256:370ffa2f812c297e047c045e813b6af05490bee2a5b69ca016463180d71f4cb3",
+  "signatures": [
+    {
+      "signer": "agent_buyer",
+      "algorithm": "Ed25519",
+      "signature": "TLVnL_AQ_vNwyaER03m-U4WWs_luUA4Imjmh6hkBixCOUM2UtL5cS0WDumzinmHwbf_lUJ1D_eJ5mqufTSy3AA",
+      "issued_at": "2026-09-02T02:00:00Z"
+    }
+  ]
+}

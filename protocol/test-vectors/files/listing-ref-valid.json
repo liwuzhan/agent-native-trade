@@ -1,0 +1,30 @@
+{
+  "protocol": "agent-trade/0.2",
+  "object_type": "LISTING_REF",
+  "body": {
+    "publisher": "agent_seller",
+    "catalog_id": "pudong_fasteners_week_34",
+    "catalog_hash": "sha256:872e7550f3136e20b0b09a2fd893fb7642120a10f7afdd775a8baab925a6b5f8",
+    "item_id": "bolt_M8_304_40",
+    "item_revision": 7,
+    "distribution_refs": [
+      {
+        "type": "magnet",
+        "uri": "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567"
+      },
+      {
+        "type": "https",
+        "uri": "https://indexer.example.com/catalogs/pudong_fasteners_week_34.tar"
+      }
+    ]
+  },
+  "body_hash": "sha256:b30f40faa759bd531a13528087f4b6c46f983383ae17ba8fe556f6c74d00392b",
+  "signatures": [
+    {
+      "signer": "agent_seller",
+      "algorithm": "Ed25519",
+      "signature": "p2SP1vFSi47z79NdYbH1dAq9Oht4MC0j_b5blYG2t9lk3AQFf2WpXrqH3-tshJrY-eOFZY8nD8LDKAdXAHBqAA",
+      "issued_at": "2026-08-22T02:00:00Z"
+    }
+  ]
+}

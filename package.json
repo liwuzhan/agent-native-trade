@@ -1,0 +1,17 @@
+{
+  "name": "agent-trade-protocol",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent-native open trade loop protocol: reference implementation",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24" },
+  "packageManager": "pnpm@10",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "vectors": "node tools/generate-test-vectors.mjs",
+    "vectors:verify": "node tools/verify-test-vectors.mjs",
+    "vectors:verify:openssl": "bash tools/verify-vectors-openssl.sh"
+  }
+}
