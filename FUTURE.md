@@ -116,3 +116,11 @@
 - 基础 schema 全必填无默认值；"最小 config" = 仅基座字段。
 - seed 文件为原始 32 字节二进制，读取后 base64url 编码进 publicKeyFromSeed。
 - signed-files 与 bt-catalog 在 S1 仅声明未消费（S2+ 使用）。
+
+## 取舍登记（S2 indexer + S3 publisher）
+
+- **tags 约定**（两角色共享）：tags 放目录内容 `catalog.json` 的 `metadata.tags`（信封 schema 是 additionalProperties:false，放 body 会验签失败）；经 manifest 哈希保护；黄页从镜像目录内容读取，无 tags 目录不进黄页但仍在镜像。
+- S2 的 409 语义：object_id 是 body_hash 纯函数，"同 object_id 异 body"密码学不可能；实现为同 object_id 但信封字节不同（如不同 issued_at 重签）→ 409，逐字节相同 → 200 幂等。
+- S2 黄页数据源 = 已镜像目录（PUT 收录）且有非空 tags；announce 的 listing-ref 补充元信息但非成员前提；weights 启动读一次、重启生效；M8 内核 import 复用、HTTP 为薄 adapter 重注册（PUT /catalogs 带 tag 提取副作用）。
+- S3 publisher：通告带超时+有限重试、失败只记日志不阻塞做种；目录变更为轮询 watch；seed 长驻句柄测试中 stop() 干净回收。
+- 新增依赖：apps/station 增 hono、@hono/node-server、better-sqlite3、@agent-trade/demo-indexer(file:)。

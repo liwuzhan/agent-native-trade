@@ -25,12 +25,17 @@
   },
   "dependencies": {
     "@agent-trade/bt-catalog": "file:../../packages/bt-catalog",
+    "@agent-trade/demo-indexer": "file:../demo-indexer",
     "@agent-trade/identity": "file:../../packages/identity",
     "@agent-trade/local-store": "file:../../packages/local-store",
     "@agent-trade/signed-files": "file:../../packages/signed-files",
+    "@hono/node-server": "^1.14.2",
+    "better-sqlite3": "^13.0.3",
+    "hono": "^4.11.7",
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.0.0",
     "typescript": "5.9.3",
     "vitest": "^4.1.11"

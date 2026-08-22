@@ -18,6 +18,17 @@ export { runStation, parseCli, buildContext } from './run.js';
 export type { CliArgs } from './run.js';
 export { createStubRole } from './roles/stub.js';
 export type { StubHandle } from './roles/stub.js';
+export { createPublisherRole } from './roles/publisher/index.js';
+export type {
+  AnnounceResult,
+  CatalogArchive,
+  CatalogMetadata,
+  PublishResult,
+  PublisherConfig,
+  PublisherHandle,
+} from './roles/publisher/index.js';
+export { createIndexerRole } from './roles/indexer/index.js';
+export type { IndexerRoleHandle } from './roles/indexer/index.js';
 export { loadOrCreateSeed } from './identity.js';
 export type { IdentityResult } from './identity.js';
 export { createLogger } from './logger.js';
