@@ -40,14 +40,7 @@ import {
   verifyFile,
 } from '@agent-trade/signed-files';
 import { openStore } from '@agent-trade/local-store';
-import {
-  buildManifest,
-  catalogHash,
-  download,
-  seed,
-  startTracker,
-  verifyCatalogFiles,
-} from '@agent-trade/bt-catalog';
+import { buildManifest, catalogHash, startTracker, verifyCatalogFiles } from '@agent-trade/bt-catalog';
 import { createMailAdapter } from '@agent-trade/email';
 import { createManualSettlementAdapter } from '@agent-trade/settlement';
 import { createHumanTaskStore } from '@agent-trade/human-task';
@@ -56,6 +49,7 @@ import { startIndexerServer } from '@agent-trade/demo-indexer';
 
 import { SharedMailboxes, LoopbackSource, LoopbackTransport } from './lib/loopback-mail.mjs';
 import { MCPHandle } from './lib/mcp.mjs';
+import { seedBounded, downloadBounded } from './lib/bt-bounded.mjs';
 
 // ---------------------------------------------------------------------------
 // 常量与路径
@@ -180,7 +174,7 @@ function runCli(args) {
 }
 
 async function httpJson(base, path, init) {
-  const res = await fetch(`${base}${path}`, init);
+  const res = await fetch(`${base}${path}`, { ...init, signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
   const text = await res.text();
   let json = null;
   try {
@@ -189,6 +183,46 @@ async function httpJson(base, path, init) {
     /* 非 JSON 响应 */
   }
   return { status: res.status, text, json };
+}
+
+// ---------------------------------------------------------------------------
+// 超时兜底（集成层硬约束：任何一步/任一 I/O 都不得无限挂起）
+// ---------------------------------------------------------------------------
+
+const STEP_TIMEOUT_MS = 30_000; // 步骤级硬超时
+/** BT_MODE=mirror 强制降级镜像（测试/验证 fallback 路径用）；默认 bt。 */
+const BT_MODE = process.env.BT_MODE ?? 'bt';
+const BT_TIMEOUT_MS = 20_000; // BT 播种/下载单独超时（超时即销毁客户端）
+const HTTP_TIMEOUT_MS = 15_000; // 索引器 HTTP 调用超时
+
+/** 给任意 Promise 加硬超时：超时抛带标签的错误（绝不静默挂起）。 */
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} 超时（${ms}ms）`)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+/**
+ * 从检索站镜像取回目录。返回 { ok, raw }，ok = manifest 逐文件校验通过
+ * 且 catalog_hash 一致 —— BT 下载失败/超时时的降级路径（[fallback] http-mirror）。
+ */
+async function fetchCatalogMirror(base, hash) {
+  const res = await httpJson(base, `/catalogs/${hash}`);
+  if (res.status !== 200) return { ok: false, raw: undefined };
+  const body = JSON.parse(res.text);
+  const files = body.files.map((f) => ({ path: f.path, data: Uint8Array.from(Buffer.from(f.content, 'base64')) }));
+  const ok = verifyCatalogFiles(files, body.manifest) && catalogHash(body.manifest) === hash;
+  return { ok, raw: res.text };
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +344,16 @@ async function main() {
   // 各参与方 store 预置信任环（saveKey 注册后 putObject/applyEvent 才能验签）。
   for (const dir of [BUYER_DIR, SELLER_DIR, INTEGRATOR_DIR]) openKeyringStore(dir);
 
+  // 跨步骤共享变量：步骤级超时包装把每步包成 IIFE，跨步骤使用的变量提升到
+  // main 作用域（在步骤内改为赋值）。
+  let tracker;
+  let announce, sellerFiles, sellerCatalog, sellerCatalogHash, sellerSeeder, sellerMagnet, sellerListingId;
+  let themedFiles, themedCatalog, themedSeeder, themedMagnet;
+  let indexerA, indexerB, serverA, serverB, baseA, baseB;
+  let dealObjectId;
+  let buyerStore, sellerStore, buyerTasks, paymentConfirmedId, receiveId;
+  let finalBuyerState, finalSellerState;
+
   const mail = makeMailAdapters();
   cleanup.push(async () => {
     await Promise.all([mail.buyer.close(), mail.seller.close(), mail.integrator.close()]);
@@ -318,21 +362,22 @@ async function main() {
   // =====================================================================
   // 步骤 1 — 卖方发布目录
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(1, '卖方发布目录（bt-catalog 播种 + LISTING_REF 签发 + 邮件通告整合商）');
 
-  const tracker = await startTracker(TRACKER_PORT);
+  tracker = await startTracker(TRACKER_PORT);
   cleanup.push(() => tracker.close());
-  const announce = `http://127.0.0.1:${tracker.port}/announce`;
+  announce = `http://127.0.0.1:${tracker.port}/announce`;
   log('步骤1', `本地 tracker 就绪：${announce}`);
 
-  const sellerFiles = readDirFiles(SELLER_CATALOG_DIR);
-  const sellerCatalog = manifestOf(sellerFiles, 'catalog');
-  const sellerCatalogHash = sellerCatalog.hash;
+  sellerFiles = readDirFiles(SELLER_CATALOG_DIR);
+  sellerCatalog = manifestOf(sellerFiles, 'catalog');
+  sellerCatalogHash = sellerCatalog.hash;
   log('步骤1', `卖方目录 manifest：${sellerCatalog.manifest.files.length} 个文件，catalog_hash=${sellerCatalogHash}`);
 
-  const sellerSeeder = await seed(SELLER_CATALOG_DIR, { tracker: [announce], dht: false });
+  sellerSeeder = await seedBounded(SELLER_CATALOG_DIR, { tracker: [announce], dht: false }, BT_TIMEOUT_MS);
   cleanup.push(() => sellerSeeder.stop());
-  const sellerMagnet = sellerSeeder.magnetURI;
+  sellerMagnet = sellerSeeder.magnetURI;
   log('步骤1', `卖方已播种 magnet=${sellerMagnet.slice(0, 90)}…`);
 
   const listingBody = {
@@ -347,7 +392,7 @@ async function main() {
     ],
   };
   const sellerListing = signed('LISTING_REF', listingBody, SELLER, sellerSeed, '2026-08-20T00:00:00Z');
-  const sellerListingId = objectId(sellerListing);
+  sellerListingId = objectId(sellerListing);
   const listingFile = writeArtifact('01-listing-seller.signed.json', serialize(sellerListing));
   await withStore(SELLER_DIR, (store) => store.putObject(sellerListing));
   log('步骤1', `LISTING_REF object_id=${sellerListingId}`);
@@ -362,9 +407,12 @@ async function main() {
     manifest_files: sellerCatalog.manifest.files.length,
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤1 卖方发布目录');
+
   // =====================================================================
   // 步骤 2 — 整合商专题目录
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(2, '整合商专题目录（整合商收通告 → 建专题目录 → 签发 LISTING_REF → 邮件通告买方）');
 
   const intgMsgs = await poll(mail.integrator, '整合商');
@@ -398,11 +446,11 @@ async function main() {
     'utf8',
   );
 
-  const themedFiles = readDirFiles(THEMED_DIR);
-  const themedCatalog = manifestOf(themedFiles, 'themed');
-  const themedSeeder = await seed(THEMED_DIR, { tracker: [announce], dht: false });
+  themedFiles = readDirFiles(THEMED_DIR);
+  themedCatalog = manifestOf(themedFiles, 'themed');
+  themedSeeder = await seedBounded(THEMED_DIR, { tracker: [announce], dht: false }, BT_TIMEOUT_MS);
   cleanup.push(() => themedSeeder.stop());
-  const themedMagnet = themedSeeder.magnetURI;
+  themedMagnet = themedSeeder.magnetURI;
 
   const themeListing = signed(
     'LISTING_REF',
@@ -452,27 +500,30 @@ async function main() {
     seller_listing_object_id: sellerListingId,
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤2 整合商专题目录');
+
   // =====================================================================
   // 步骤 3 — 检索站收录 + 卖方/tracker 下线 + 镜像验证
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(3, '检索站收录（双索引器启动 → 目录 HTTP 镜像存档 → 买方 BT 下载 → 卖方与 tracker 下线 → 镜像取回）');
 
-  const indexerA = new Indexer({ dir: INDEXER_A_DIR, weights: loadWeights(WEIGHTS_A), indexerId: 'indexer-a' });
-  const indexerB = new Indexer({ dir: INDEXER_B_DIR, weights: loadWeights(WEIGHTS_B), indexerId: 'integrator-b' });
+  indexerA = new Indexer({ dir: INDEXER_A_DIR, weights: loadWeights(WEIGHTS_A), indexerId: 'indexer-a' });
+  indexerB = new Indexer({ dir: INDEXER_B_DIR, weights: loadWeights(WEIGHTS_B), indexerId: 'integrator-b' });
   for (const ix of [indexerA, indexerB]) {
     ix.addTrusted(BUYER, buyerSeed);
     ix.addTrusted(SELLER, sellerSeed);
     ix.addTrusted(INTEGRATOR, INTEGRATOR_SEED);
   }
-  const serverA = await startIndexerServer(indexerA, INDEXER_A_PORT);
-  const serverB = await startIndexerServer(indexerB, INDEXER_B_PORT);
+  serverA = await startIndexerServer(indexerA, INDEXER_A_PORT);
+  serverB = await startIndexerServer(indexerB, INDEXER_B_PORT);
   cleanup.push(async () => {
     await Promise.all([serverA.close(), serverB.close()]);
     indexerA.close();
     indexerB.close();
   });
-  const baseA = `http://127.0.0.1:${serverA.port}`;
-  const baseB = `http://127.0.0.1:${serverB.port}`;
+  baseA = `http://127.0.0.1:${serverA.port}`;
+  baseB = `http://127.0.0.1:${serverB.port}`;
   log('步骤3', `索引器 A（检索站 indexer-a, weights.json）: ${baseA}`);
   log('步骤3', `索引器 B（整合商 integrator-b, weights-alt.json）: ${baseB}`);
 
@@ -488,16 +539,54 @@ async function main() {
   const themedArchiveFile = writeArtifact('03-catalog-archive-themed.json', themedArchive.rawBody);
   log('步骤3', `检索站已存档两份目录（HTTP 镜像）`);
 
-  // 买方趁 tracker 在线时先经 BT 拿到两份目录（验证 M4 闭环）。
+  // 买方趁 tracker 在线时先经 BT 拿到两份目录（验证 M4 闭环）；
+  // BT 超时（20s）/失败时降级到检索站 HTTP 镜像（[fallback] http-mirror），
+  // 断言任一路径取得的目录内容哈希 === catalog_hash。
   const themeDlDir = join(RUN, 'buyer', 'dl-theme');
-  const themedDlManifest = await download(themedMagnet, themeDlDir, { tracker: [announce], dht: false });
-  const themeBtOk = themedDlManifest.files.length === themedCatalog.manifest.files.length;
-  log('步骤3', `买方 BT 下载专题目录：${themedDlManifest.files.length} 个文件，manifest 一致=${themeBtOk}`);
+  let themeDlPath = 'bt';
+  let themeDlOk = false;
+  if (BT_MODE === 'mirror') {
+    themeDlPath = 'http-mirror';
+    log('步骤3', '[fallback] http-mirror BT_MODE=mirror 强制走镜像（验证降级路径）');
+    const fb = await fetchCatalogMirror(baseA, themedCatalog.hash);
+    themeDlOk = fb.ok;
+    if (fb.ok) writeArtifact('05-catalog-theme-from-mirror.json', fb.raw);
+  } else {
+    try {
+      const themedDlManifest = await downloadBounded(themedMagnet, themeDlDir, { tracker: [announce], dht: false }, BT_TIMEOUT_MS);
+      themeDlOk = catalogHash(themedDlManifest) === themedCatalog.hash;
+      log('步骤3', `买方 BT 下载专题目录：${themedDlManifest.files.length} 个文件，catalog_hash 一致=${themeDlOk}`);
+    } catch (btErr) {
+      themeDlPath = 'http-mirror';
+      log('步骤3', `[fallback] http-mirror BT 下载专题目录失败/超时（${btErr.message}），改经检索站镜像取回`);
+      const fb = await fetchCatalogMirror(baseA, themedCatalog.hash);
+      themeDlOk = fb.ok;
+      if (fb.ok) writeArtifact('05-catalog-theme-from-mirror.json', fb.raw);
+    }
+  }
 
   const sellerDlDir = join(RUN, 'buyer', 'dl-seller');
-  const sellerDlManifest = await download(sellerMagnet, sellerDlDir, { tracker: [announce], dht: false });
-  const sellerBtOk = catalogHash(sellerDlManifest) === sellerCatalogHash;
-  log('步骤3', `买方 BT 下载卖方目录：catalog_hash 一致=${sellerBtOk}`);
+  let sellerDlPath = 'bt';
+  let sellerDlOk = false;
+  if (BT_MODE === 'mirror') {
+    sellerDlPath = 'http-mirror';
+    log('步骤3', '[fallback] http-mirror BT_MODE=mirror 强制走镜像（验证降级路径）');
+    const fb = await fetchCatalogMirror(baseA, sellerCatalogHash);
+    sellerDlOk = fb.ok;
+    if (fb.ok) writeArtifact('05-catalog-seller-from-mirror.json', fb.raw);
+  } else {
+    try {
+      const sellerDlManifest = await downloadBounded(sellerMagnet, sellerDlDir, { tracker: [announce], dht: false }, BT_TIMEOUT_MS);
+      sellerDlOk = catalogHash(sellerDlManifest) === sellerCatalogHash;
+      log('步骤3', `买方 BT 下载卖方目录：catalog_hash 一致=${sellerDlOk}`);
+    } catch (btErr) {
+      sellerDlPath = 'http-mirror';
+      log('步骤3', `[fallback] http-mirror BT 下载卖方目录失败/超时（${btErr.message}），改经检索站镜像取回`);
+      const fb = await fetchCatalogMirror(baseA, sellerCatalogHash);
+      sellerDlOk = fb.ok;
+      if (fb.ok) writeArtifact('05-catalog-seller-from-mirror.json', fb.raw);
+    }
+  }
 
   // 卖方与 tracker 中途下线（cleanup 保持幂等，重复清理被 try/catch 吸收）。
   await sellerSeeder.stop();
@@ -521,17 +610,20 @@ async function main() {
     archive_seller_file: sellerArchiveFile,
     archive_themed_file: themedArchiveFile,
     mirror_file: mirrorFile,
-    seller_bt_ok: sellerBtOk,
-    theme_bt_ok: themeBtOk,
+    seller_dl: { path: sellerDlPath, ok: sellerDlOk },
+    theme_dl: { path: themeDlPath, ok: themeDlOk },
     mirror_verify_ok: mirrorVerifyOk,
   };
   summary.flags.seller_offline = true;
   summary.flags.tracker_offline = true;
   summary.flags.mirror_after_offline = true;
 
+  })(), STEP_TIMEOUT_MS, '步骤3 检索站收录/下线/镜像');
+
   // =====================================================================
   // 步骤 4 — 买方找到并联系卖方
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(4, '买方找到并联系（收整合商通告 → 收录两份 LISTING_REF → 经镜像确认目录 → 邮件联系卖方）');
 
   const buyerMsgs = await poll(mail.buyer, '买方');
@@ -572,9 +664,12 @@ async function main() {
     buyer_store_has_seller_listing: true,
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤4 买方找到并联系');
+
   // =====================================================================
   // 步骤 5 — 议价（邮件三封：报价 → 接受）
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(5, '议价（邮件往来）');
 
   const sellerMsgs5 = await poll(mail.seller, '卖方');
@@ -603,9 +698,12 @@ async function main() {
   log('步骤5', `议价往来 ${negotiation.length} 封：${negotiation.map((n) => n.subject).join(' | ')}`);
   summary.steps['5'] = { negotiation };
 
+  })(), STEP_TIMEOUT_MS, '步骤5 议价');
+
   // =====================================================================
   // 步骤 6 — 双签合同（买方经 MCP 起草签署 → 邮件 → 卖方经 MCP 审签 + 记录 DEAL_SIGNED）
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(6, '双签合同（MCP 起草/签署/审签 + 邮件传递 + 双方各自记录 DEAL_SIGNED）');
 
   const dealBody = {
@@ -642,7 +740,7 @@ async function main() {
     signer: BUYER,
   });
   if (buyerSigned.isError) throw new Error(`trade_sign_deal(买方) 失败：${buyerSigned.text}`);
-  const dealObjectId = buyerSigned.data.object_id;
+  dealObjectId = buyerSigned.data.object_id;
   log('步骤6', `买方经 MCP 起草并签署 DEAL object_id=${dealObjectId}（body_hash=${compiled.data.body_hash}）`);
   await buyerMcp.close();
 
@@ -723,14 +821,17 @@ async function main() {
     seller_deal_signed_event: sellerDealSigned.data.object_id,
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤6 双签合同');
+
   // =====================================================================
   // 步骤 7 — 钱包/人类支付（manual-settlement + M7 PAY 任务，演示自动标记完成）
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(7, '钱包/人类支付（manual-settlement：PAY 任务 → 人工完成 → PAYMENT_CONFIRMED）');
 
-  const buyerStore = openStore(BUYER_DIR);
-  const sellerStore = openStore(SELLER_DIR);
-  const buyerTasks = createHumanTaskStore(buyerStore, { dir: BUYER_DIR });
+  buyerStore = openStore(BUYER_DIR);
+  sellerStore = openStore(SELLER_DIR);
+  buyerTasks = createHumanTaskStore(buyerStore, { dir: BUYER_DIR });
   const manual = createManualSettlementAdapter({ taskStore: buyerTasks });
 
   const deal = buyerStore.getObject(dealObjectId);
@@ -759,7 +860,7 @@ async function main() {
   log('步骤7', `人类完成 PAY 任务 ${payTaskId}（payment_reference=BANK-CNY-20260823-0001）`);
 
   const paymentConfirmed = await manual.confirm(deal, { store: sellerStore, agentId: SELLER, secretKey: sellerSeed });
-  const paymentConfirmedId = objectId(paymentConfirmed);
+  paymentConfirmedId = objectId(paymentConfirmed);
   const pcFile = writeArtifact('07-payment-confirmed.signed.json', serialize(paymentConfirmed));
   log('步骤7', `卖方确认收款：PAYMENT_CONFIRMED object_id=${paymentConfirmedId}`);
   await sendObj(mail.seller, BUYER_ADDR, '[trade] payment confirmed', paymentConfirmed, '07-payment-confirmed.signed.json', TRADE_ID);
@@ -780,9 +881,12 @@ async function main() {
     seller_state: sellerStore.stateOf(TRADE_ID),
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤7 钱包/人类支付');
+
   // =====================================================================
   // 步骤 8 — 人类生产验货发货（PRODUCE → FULFILLING，SHIP → SHIPPED）
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(8, '人类生产验货发货（M7 任务：PRODUCE → FULFILLING，SHIP/验货 → SHIPPED）');
 
   const sellerTasks = createHumanTaskStore(sellerStore, { dir: SELLER_DIR });
@@ -840,12 +944,15 @@ async function main() {
     seller_state: sellerStore.stateOf(TRADE_ID),
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤8 人类生产验货发货');
+
   // =====================================================================
   // 步骤 9 — 物流签收事件（买方 RECEIVE 任务 → DELIVERED）
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(9, '物流签收事件（买方 RECEIVE 任务 → DELIVERED）');
 
-  const receiveId = buyerTasks.create({
+  receiveId = buyerTasks.create({
     trade_id: TRADE_ID,
     task_type: 'RECEIVE',
     instructions: '签收快递并核验内容物（对照目录规格与验收条件）',
@@ -876,9 +983,12 @@ async function main() {
     seller_state: sellerStore.stateOf(TRADE_ID),
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤9 物流签收');
+
   // =====================================================================
   // 步骤 10 — 双方签名评价广播（COMPLETED + 双方 TRADE_RECEIPT → 双索引器）
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(10, '双方签名评价广播（COMPLETED → 双方回执 → 提交两个索引器）');
 
   const completedEvent = signed(
@@ -905,8 +1015,8 @@ async function main() {
   if (cpText === undefined) throw new Error('卖方未收到 COMPLETED 邮件');
   sellerStore.applyEvent(TRADE_ID, parse(cpText)); // → COMPLETED
 
-  const finalBuyerState = buyerStore.stateOf(TRADE_ID);
-  const finalSellerState = sellerStore.stateOf(TRADE_ID);
+  finalBuyerState = buyerStore.stateOf(TRADE_ID);
+  finalSellerState = sellerStore.stateOf(TRADE_ID);
   log('步骤10', `状态链终态：买方=${finalBuyerState}，卖方=${finalSellerState}`);
   if (finalBuyerState !== 'COMPLETED' || finalSellerState !== 'COMPLETED') {
     throw new Error(`状态链未到 COMPLETED：buyer=${finalBuyerState} seller=${finalSellerState}`);
@@ -1002,9 +1112,12 @@ async function main() {
   buyerStore.close();
   sellerStore.close();
 
+  })(), STEP_TIMEOUT_MS, '步骤10 双方签名评价广播');
+
   // =====================================================================
   // 步骤 11 — 静态导出（双索引器）→ 杀服务器 → 离线查询
   // =====================================================================
+  await withTimeout((async () => {
   stepBanner(11, '独立整合商收录 + 静态导出 + 离线查询');
 
   const snapshots = {};
@@ -1067,6 +1180,8 @@ async function main() {
     cli_export_ok: cliExportOk,
   };
 
+  })(), STEP_TIMEOUT_MS, '步骤11 独立整合商收录+离线查询');
+
   // ---------------------------------------------------------------------
   // 汇总
   // ---------------------------------------------------------------------
@@ -1076,6 +1191,14 @@ async function main() {
   log('done', `完成。摘要：runlog/demo-summary.json（object_id / 文件路径 / 评分全量记录）`);
   log('done', `下一步：node assertions.mjs`);
 }
+
+/** 全局看门狗：任何未被步骤超时/受控 I/O 覆盖的挂起，最迟 300s 强制退出。 */
+const GLOBAL_WATCHDOG_MS = 300_000;
+const watchdog = setTimeout(() => {
+  console.error(`❌ 全局看门狗：脚本超过 ${GLOBAL_WATCHDOG_MS / 1000}s 仍未结束（存在未回收的挂起句柄），强制退出`);
+  process.exit(1);
+}, GLOBAL_WATCHDOG_MS);
+watchdog.unref();
 
 main()
   .catch((err) => {

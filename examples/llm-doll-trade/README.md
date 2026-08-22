@@ -91,9 +91,12 @@ LISTING_REF + 卖方 LISTING_REF）。
 ### 步骤 3 · 检索站收录（§9E-3）+ 下线 + 镜像验证
 两个 demo-indexer 实例启动（A=检索站 `weights.json`，B=独立整合商
 `weights-alt.json`）。卖方目录与专题目录经 `PUT /catalogs/:hash` 存档到检索站
-（HTTP 镜像）。买方趁 tracker 在线先用 BT 下载两份目录（M4 闭环）。随后**卖方与
-tracker 中途下线**（seed 停止、tracker 关闭）。买方改经检索站 `GET /catalogs/:hash`
-取回卖方目录：manifest 校验通过、`catalog_hash` 逐字节一致 —— 验证 2.4 存档角色。
+（HTTP 镜像）。买方趁 tracker 在线先用 BT 下载两份目录（M4 闭环）；**BT 下载有
+20s 硬超时，超时/失败即降级**：日志记录 `[fallback] http-mirror`，改经检索站
+HTTP 镜像取回同一目录（断言任一路径的目录内容哈希 === `catalog_hash`）。随后
+**卖方与 tracker 中途下线**（seed 停止、tracker 关闭）。买方再经检索站
+`GET /catalogs/:hash` 取回卖方目录：manifest 校验通过、`catalog_hash` 逐字节
+一致 —— 验证 2.4 存档角色。
 
 - 存档包：`runlog/artifacts/03-catalog-archive-seller.json`、
   `03-catalog-archive-themed.json`；镜像取回：`04-catalog-from-mirror.json`
@@ -167,6 +170,19 @@ subject 评分）；再演示一遍 CLI `indexer export` → `query`。
 - **权重指纹（确定性）**：A `sha256:ea90ce2178b6838741e1ff518698a4451b79801928aa546c2cc57cabb0a88b21`
   ≠ B `sha256:b55f942567f138c378270dc7d6f04a20332d198fc199c733b5bb994513a49511`
 - 离线查询结果：`indexer-a` seller=70、`integrator-b` seller=80，均 `verified=valid`
+
+## 健壮性（集成层兜底，防无限挂起）
+
+- **步骤级硬超时 30s**：`demo.mjs` 把 11 步各自包在 `withTimeout(…, STEP_TIMEOUT_MS)`
+  里，超时抛"步骤N … 超时"错误并终止脚本，绝不让整个演示无限挂起。
+- **BT 播种/下载 20s 硬超时**：`lib/bt-bounded.mjs` 的 `seedBounded`/
+  `downloadBounded` 超时即**销毁 WebTorrent 客户端**（不留 socket/timer 拖住进程），
+  下载失败自动降级检索站 HTTP 镜像（`[fallback] http-mirror`）。
+- **HTTP 调用 15s 超时**（`AbortSignal.timeout`）；**全局看门狗 300s** 兜底强制退出。
+- 测试旋钮 `BT_MODE=mirror bash run-demo.sh`：强制跳过 BT、直接走镜像降级路径
+  （用于可复现地验证 `[fallback] http-mirror`；两模式断言均全绿）。
+- 端口固定（16881/18781/18782）且每次运行前清理 runlog；残留进程可用
+  `pkill -f demo.mjs` 清除。
 
 ## 断言覆盖（assertions.mjs）
 

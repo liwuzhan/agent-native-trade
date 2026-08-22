@@ -4,7 +4,7 @@
 
 - [ ] `bash tools/verify-all.sh` PASS（构建 + 全部测试 + 三实现验签）
 - [ ] `bash examples/llm-doll-trade/run-demo.sh` 全绿（11 步闭环）
-- [ ] M4 手动 DHT 验收在真实网络执行并记录结果
+- [ ] M4 手动 DHT 验收在真实网络执行并记录结果（**本环境 2026-08-23 失败：网络受限，需在开放网络复跑**）
 - [ ] M9 桌面客户端（Claude Desktop/Cursor）人工兼容性测试记录
 
 ## 发布步骤

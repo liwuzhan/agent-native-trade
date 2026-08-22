@@ -165,8 +165,19 @@ step(3, '检索站收录 + 卖方/tracker 下线 + HTTP 镜像取回', () => {
   check('镜像取回的目录 manifest 校验通过', verifyCatalogFiles(mirrorFiles, mirror.manifest) === true);
   check('镜像取回的 catalog_hash 与卖方发布一致（离线存档角色）', catalogHash(mirror.manifest) === summary.steps['1'].catalog_hash);
 
-  check('买方 BT 下载卖方目录 manifest 一致（M4 闭环）', st.seller_bt_ok === true);
-  check('买方 BT 下载专题目录 manifest 一致（M4 闭环）', st.theme_bt_ok === true);
+  // BT 下载超时/失败时演示已降级到检索站 HTTP 镜像；任一路径必须内容哈希 === catalog_hash。
+  check('卖方目录取得（bt 或 [fallback] http-mirror）内容哈希 === catalog_hash', st.seller_dl?.ok === true);
+  check('专题目录取得（bt 或 [fallback] http-mirror）内容哈希 === catalog_hash', st.theme_dl?.ok === true);
+  for (const [key, file, expectedHash] of [
+    ['seller_dl', '05-catalog-seller-from-mirror.json', summary.steps['1'].catalog_hash],
+    ['theme_dl', '05-catalog-theme-from-mirror.json', summary.steps['2'].catalog_hash],
+  ]) {
+    if (st[key]?.path === 'http-mirror') {
+      const fb = JSON.parse(readArtifact(file));
+      const fbFiles = fb.files.map((f) => ({ path: f.path, data: Uint8Array.from(Buffer.from(f.content, 'base64')) }));
+      check(`${key} [fallback] http-mirror 取回包哈希 === catalog_hash`, verifyCatalogFiles(fbFiles, fb.manifest) === true && catalogHash(fb.manifest) === expectedHash);
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------

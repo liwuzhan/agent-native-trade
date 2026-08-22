@@ -85,3 +85,10 @@
 - 事件 object_id 非确定性（uuidv7/now），权威值见 runlog/demo-summary.json；演示未调用 rebuildIndex（避免同毫秒重放抖动，M3 测试已覆盖该特性）。
 - 人类步骤由演示脚本自动标记完成；整合商由第二索引器实例扮演；整合商身份为硬编码虚构固定种子。
 - 修复记录：lib/mcp.mjs 相对路径层级错误导致 MCP 子进程秒退（已改 ../../../）；MCP 子进程 stderr 需排空防阻塞。
+
+## 取舍登记（M11 健壮性加固 & DHT 验收结果）
+
+- demo 11 步各包 30s 硬超时；BT 播种/下载单独 20s（`lib/bt-bounded.mjs`，超时销毁 webtorrent 客户端）；HTTP 15s；全局看门狗 300s。
+- BT 下载失败降级到索引站 HTTP 镜像（`BT_MODE=mirror` 强制降级路径已验证：108 断言全绿）。
+- **BT 下载在部分环境可能偶发挂起**：本环境未复现、根因未定位，已用超时+镜像降级兜底（M11 子代理排查有界结论）。
+- **M4 DHT 真实网络验收在本环境失败**（2026-08-23）：卖方播种+宣告流程走完，买方仅 magnet 120s 超时；本环境 github.com 不可达，判断为公共 DHT bootstrap 被网络策略拦截所致，非实现问题。**发布前必须在开放网络复跑 `packages/bt-catalog/scripts/dht-acceptance.mjs`**。
