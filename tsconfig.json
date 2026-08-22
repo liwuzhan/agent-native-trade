@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/identity" },
-    { "path": "packages/signed-files" }
+    { "path": "packages/signed-files" },
+    { "path": "packages/local-store" }
   ]
 }
