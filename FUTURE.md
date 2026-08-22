@@ -44,3 +44,11 @@
 - 附件超限"拒绝落地但消息仍投递"（附件从列表剔除）；同名附件 -1/-2 后缀去重；无 Message-ID 时回退 imap-uid-<uid>@localhost。
 - 待办候选：邮件处理后的 \Seen/归档策略、uidValidity 处理、IMAP 重连策略。
 - GreenMail 集成测试本机无 Docker 未执行，由 CI 的 greenmail service 执行（greenmail/standalone:2.1.0，SMTP 3025 / IMAP 3143）。
+
+## 取舍登记（M6 settlement）
+
+- `markFulfilling` 为模块级导出函数（卡片接口块未列，按"适配器提供"处理）。
+- `request` 同步执行 applyEvent（状态机需先到 PAYMENT_PENDING 才能 confirm）。
+- manual-settlement 的 `confirm` 自建并签发 PAYMENT_CONFIRMED，不调用 M7 的 toEvent（M7 并行开发，仅按 HumanTaskStore 接口注入；任务须存在且 DONE）。
+- test-voucher 凭证登记为适配器实例级内存注册表，不持久化（虚构凭证）。
+- 秘密扫描范围含 .data/objects 与 index.sqlite；keys/ 有意排除（0600 私钥环，非公开数据）。
