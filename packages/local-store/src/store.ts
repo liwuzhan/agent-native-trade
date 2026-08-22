@@ -117,6 +117,25 @@ function loadKeyRing(keysDir: string, keyRing: Map<string, string>): void {
   }
 }
 
+/**
+ * 信任环第二来源（M10 双机场景）：只读公钥导入。`.data/peers/<agentId>.pub`
+ * 是 43 字符 base64url Ed25519 公钥（不是秘密）。私钥派生条目优先 —— 公钥
+ * 导入只补环中缺失的 signer，绝不覆盖本地私钥派生的公钥。
+ */
+const PEERS_REL = 'peers';
+const PUBKEY_RE = /^[A-Za-z0-9_-]{43}$/;
+
+function loadPeerRing(peersDir: string, keyRing: Map<string, string>): void {
+  if (!existsSync(peersDir)) return;
+  for (const name of readdirSync(peersDir)) {
+    if (!name.endsWith('.pub')) continue;
+    const agentId = decodeURIComponent(name.slice(0, -'.pub'.length));
+    const publicKey = readFileSync(join(peersDir, name), 'utf8').trim();
+    if (!PUBKEY_RE.test(publicKey)) continue; // 非法公钥文件静默跳过（只读导入）
+    if (!keyRing.has(agentId)) keyRing.set(agentId, publicKey);
+  }
+}
+
 function openDb(path: string): Database.Database {
   const db = new Database(path);
   db.exec(`
@@ -150,11 +169,13 @@ export function openStore(dir: string): Store {
   mkdirSync(keysDir, { recursive: true, mode: 0o700 });
   chmodSync(keysDir, 0o700); // exact mode regardless of umask
 
-  // Trust ring: public keys derived from the saved secret keys. verifyFile
+  // Trust ring: public keys derived from the saved secret keys, plus read-only
+  // public-key imports under .data/peers/ (M10 cross-machine signing). verifyFile
   // resolves signers through this ring (test vectors' identities are loaded
   // via saveKey, exactly as the module card prescribes).
   const keyRing = new Map<string, string>();
   loadKeyRing(keysDir, keyRing);
+  loadPeerRing(join(root, PEERS_REL), keyRing);
   const resolveKey = (signer: string): string | undefined => keyRing.get(signer);
 
   let db = openDb(indexPath);

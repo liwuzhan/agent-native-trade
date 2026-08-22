@@ -15,6 +15,38 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
+    },
+    "./handlers/deal": {
+      "types": "./dist/handlers/deal.d.ts",
+      "import": "./dist/handlers/deal.js"
+    },
+    "./handlers/event": {
+      "types": "./dist/handlers/event.d.ts",
+      "import": "./dist/handlers/event.js"
+    },
+    "./handlers/identity": {
+      "types": "./dist/handlers/identity.d.ts",
+      "import": "./dist/handlers/identity.js"
+    },
+    "./handlers/receipt": {
+      "types": "./dist/handlers/receipt.d.ts",
+      "import": "./dist/handlers/receipt.js"
+    },
+    "./handlers/settlement": {
+      "types": "./dist/handlers/settlement.d.ts",
+      "import": "./dist/handlers/settlement.js"
+    },
+    "./shared": {
+      "types": "./dist/shared.d.ts",
+      "import": "./dist/shared.js"
+    },
+    "./policy": {
+      "types": "./dist/policy.d.ts",
+      "import": "./dist/policy.js"
     }
   },
   "main": "./dist/index.js",

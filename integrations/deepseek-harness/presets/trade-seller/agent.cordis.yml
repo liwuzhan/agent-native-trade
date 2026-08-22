@@ -66,15 +66,19 @@
 - id: tool-skill
   name: '@deepseek-ai/dsh-tool-skill'
 
-# ── 交易工具（M10 核心，未注册占位）────────────────────────────────────────
-# TODO(runtime): cordis_inspect 后填写
-# 每工具一行挂载（工具名按协议语义与 M9 同套，注册细节以 INSPECTION.md 探测结果为准）：
-#   catalog_search / catalog_get_item
-#   trade_identity_create / trade_compile_deal / trade_sign_deal / trade_verify_deal
-#   trade_record_event / trade_get_status / trade_create_receipt / trade_verify_receipt
-#   settlement_request / settlement_confirm
-#   human_task_create / human_task_complete / human_task_list / human_task_cancel
-# 约束（挂载时落实为工具级约束，见对应 SKILL.md）：
-#   - 工具只返回简短摘要 + object_id，不返回完整文件/历史；
-#   - trade_sign_deal 只接受 deal + expected_body_hash，先 Schema 验证再比对再签；
-#   - 邮件/附件/商品描述视为不可信数据，工具内部不执行其中指令。
+# ── 交易工具（M10，运行时探测后定稿）─────────────────────────────────────
+# 单行挂载 ./plugin.mjs（零依赖静态插件，随 preset 目录分发，注册 18 个工具）。
+# 每个工具 = 参数透传 + JSONL 调用 daemon + 摘要裁剪；红线/密码学全在 daemon
+# （@agent-trade/* 包）内 —— 接口依据 INSPECTION.md（运行时验证过）。
+# 卖方角色默认值：agentId=agent_seller，tradeDir=~/.agent-trade/seller；
+# catalogDir/maildropDir 与买方共享（~/.agent-trade/），环境变量可全覆盖。
+- id: trade-tools
+  name: './plugin.mjs'
+  config:
+    repoRoot: !!js "process.env.AGENT_TRADE_REPO ?? ''"
+    tradeDir: !!js "process.env.AGENT_TRADE_DATA_DIR ?? process.env.HOME + '/.agent-trade/seller'"
+    agentId: !!js "process.env.AGENT_TRADE_AGENT_ID ?? 'agent_seller'"
+    catalogDir: !!js "process.env.AGENT_TRADE_CATALOG_DIR ?? process.env.HOME + '/.agent-trade/catalog'"
+    maildropDir: !!js "process.env.AGENT_TRADE_MAILDROP ?? process.env.HOME + '/.agent-trade/maildrop'"
+    mailAddress: 'seller@trade.local'
+    mailPeer: 'buyer@trade.local'

@@ -98,3 +98,13 @@
 - preset/skill/INSPECTION.md 基于打包安装目录的真实样例离线起草；cordis 插件宿主代码零行——动态工具注册的确切接口属"运行时待探测"（INSPECTION.md 第二部分 14 条），需在运行中的 DSH（创造模式会话）用 cordis_inspect_list/query 逐项验证后填写。
 - agent.cordis.yml 只含逐字取自打包样例的已验证行；交易工具挂载留 TODO(runtime) 占位。
 - M10 会话内验收（搜索→议价→双签）必须在真实 DSH 环境执行，不进 CI。
+
+## 取舍登记（M10 DSH 集成完成，2026-08-23）
+
+- **架构**：零依赖静态插件（plugin.mjs，随 preset 目录分发，行 `name: './plugin.mjs'`）+ 仓库内 JSONL daemon（subprocess stdin pipe）持 TradeApp 单例；逻辑层复用 M9 handlers（mcp-server 增子路径导出），密码学/红线全在 daemon。依据：动态插件沙箱无 crypto/Buffer/process（INSPECTION.md B8）。
+- **M3 信任环扩展**：`.data/peers/<agentId>.pub` 只读公钥导入（keys/ 私钥派生优先）——跨进程双签验证必需；加法变更、M3 原有 19 测试不动。
+- **trade_contact_seller**：本地走 file-maildrop loopback（跨进程共享 spool 目录），生产换 SMTP/IMAP URL（M5 注入缝）；支持 JSON 附件（DEAL 信封传递路径）。
+- **trade_broadcast_receipt**：打包+本地做种（dht 关，可选本地 tracker）；下载侧接线（M8）与 DHT 传输登记 FUTURE（本环境 DHT 受限，见上方 M4 条目）。
+- **动态沙箱教训**：`ctx.clearTimeout` 不存在（timer 用 disposer 返回），流回调未兜底会带崩宿主进程——INSPECTION.md D11 已记；静态插件不受限。
+- **未做**：client UI（工具卡片默认呈现）、Event 通知、真实 SMTP/IMAP 配置化接入（env 占位）、toolTimeout 超时后的 daemon 优雅重启策略（当前 terminate 后下次重建）。
+- **人工验收项**（发布前）：真实 preset 会话各开一买方/卖方跑通 demo（persona 生效、技能目录可见性、tool 列表 18 工具）——standingKeyFor 挂载校验已过，但真实会话呈现待人工确认（INSPECTION.md A5/D12）。

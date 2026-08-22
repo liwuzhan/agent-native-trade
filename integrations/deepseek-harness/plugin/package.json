@@ -1,0 +1,31 @@
+{
+  "name": "@agent-trade/dsh-integration",
+  "version": "0.2.0",
+  "description": "agent-trade/0.2 DSH 集成（模块 M10）：零依赖 Cordis Host 插件（plugin.mjs）+ JSONL daemon 桥 + 16+2 交易工具",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "pretest": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-trade/bt-catalog": "file:../../../packages/bt-catalog",
+    "@agent-trade/email": "file:../../../adapters/email",
+    "@agent-trade/human-task": "file:../../../adapters/human-task",
+    "@agent-trade/identity": "file:../../../packages/identity",
+    "@agent-trade/local-store": "file:../../../packages/local-store",
+    "@agent-trade/mcp-server": "file:../../../apps/mcp-server",
+    "@agent-trade/signed-files": "file:../../../packages/signed-files"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
