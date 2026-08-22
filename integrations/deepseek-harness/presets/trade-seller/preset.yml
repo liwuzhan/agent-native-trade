@@ -1,0 +1,2 @@
+name: 交易卖方
+description: 卖方 agent preset：维护在售报价、响应买方议价、审签/起草 DEAL 并组织履约推进交易状态机。

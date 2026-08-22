@@ -92,3 +92,9 @@
 - BT 下载失败降级到索引站 HTTP 镜像（`BT_MODE=mirror` 强制降级路径已验证：108 断言全绿）。
 - **BT 下载在部分环境可能偶发挂起**：本环境未复现、根因未定位，已用超时+镜像降级兜底（M11 子代理排查有界结论）。
 - **M4 DHT 真实网络验收在本环境失败**（2026-08-23）：卖方播种+宣告流程走完，买方仅 magnet 120s 超时；本环境 github.com 不可达，判断为公共 DHT bootstrap 被网络策略拦截所致，非实现问题。**发布前必须在开放网络复跑 `packages/bt-catalog/scripts/dht-acceptance.mjs`**。
+
+## 取舍登记（M10 离线预备）
+
+- preset/skill/INSPECTION.md 基于打包安装目录的真实样例离线起草；cordis 插件宿主代码零行——动态工具注册的确切接口属"运行时待探测"（INSPECTION.md 第二部分 14 条），需在运行中的 DSH（创造模式会话）用 cordis_inspect_list/query 逐项验证后填写。
+- agent.cordis.yml 只含逐字取自打包样例的已验证行；交易工具挂载留 TODO(runtime) 占位。
+- M10 会话内验收（搜索→议价→双签）必须在真实 DSH 环境执行，不进 CI。
