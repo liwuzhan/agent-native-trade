@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-trade.dev/schemas/trade-receipt.schema.json",
+  "title": "TRADE_RECEIPT",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "object_type", "body", "body_hash", "signatures"],
+  "properties": {
+    "protocol": { "const": "agent-trade/0.2" },
+    "object_type": { "const": "TRADE_RECEIPT" },
+    "body_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "signatures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": { "$ref": "#/$defs/signature" }
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_id", "trade_id", "contract_hash", "subject", "direction", "result", "rating"],
+      "properties": {
+        "receipt_id": { "type": "string", "minLength": 1 },
+        "trade_id": { "type": "string", "minLength": 1 },
+        "contract_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "subject": { "$ref": "#/$defs/agentId" },
+        "direction": { "enum": ["buyer_to_seller", "seller_to_buyer", "third_party"] },
+        "result": { "enum": ["COMPLETED", "DISPUTED", "RESOLVED", "CANCELLED"] },
+        "rating": { "enum": ["POSITIVE", "NEUTRAL", "NEGATIVE", "FACT_ONLY"] },
+        "comment": { "type": "string" },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "specification_match": { "type": "boolean" },
+            "delivery_hours": { "type": "integer", "minimum": 0 },
+            "communication_score": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "overall_score": { "type": "integer", "minimum": 1, "maximum": 5 }
+          }
+        },
+        "transaction_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["category", "amount_disclosure"],
+          "properties": {
+            "category": { "type": "string" },
+            "asset": { "type": "string" },
+            "amount_disclosure": { "enum": ["exact", "range", "none"] },
+            "amount_range": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": { "$ref": "#/$defs/decimal" }
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deal_ref": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["object_id", "body_hash"],
+              "properties": {
+                "object_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "body_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "distribution_refs": { "type": "array" }
+              }
+            },
+            "settlement_event_ref": { "type": "string" },
+            "logistics_event_ref": { "type": "string" },
+            "bundle": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "supersedes": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "agentId": { "type": "string", "minLength": 1 },
+    "decimal": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,8})?$"
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signer", "algorithm", "signature", "issued_at"],
+      "properties": {
+        "signer": { "$ref": "#/$defs/agentId" },
+        "algorithm": { "const": "Ed25519" },
+        "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" },
+        "issued_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

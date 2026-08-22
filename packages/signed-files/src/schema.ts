@@ -1,10 +1,19 @@
 import { readFileSync } from 'node:fs';
 
-import Ajv2020 from 'ajv/dist/2020.js';
-import addFormats from 'ajv-formats';
-import type { ValidateFunction } from 'ajv';
+import Ajv2020NS from 'ajv/dist/2020.js';
+import addFormatsNS from 'ajv-formats';
+import type { AnySchemaObject, ValidateFunction } from 'ajv/dist/2020.js';
 
 import type { ObjectType } from './types.js';
+
+/**
+ * ajv / ajv-formats ship as CommonJS. Under `module: NodeNext`, TypeScript
+ * types the ESM default import of a CJS module as its whole module.exports
+ * namespace (Node semantics), while at runtime Node's cjs-module-lexer exposes
+ * the class / plugin as the default binding. Cast to the actual runtime shape.
+ */
+const Ajv2020 = Ajv2020NS as unknown as typeof Ajv2020NS.default;
+const addFormats = addFormatsNS as unknown as typeof addFormatsNS.default;
 
 /**
  * JSON Schema (draft 2020-12) validators for the four object envelopes.
@@ -30,7 +39,7 @@ function getValidator(objectType: string): ValidateFunction | undefined {
   let validate = validators.get(type);
   if (!validate) {
     const url = new URL(`./schemas/${SCHEMA_FILES[type]}`, import.meta.url);
-    const schema = JSON.parse(readFileSync(url, 'utf8')) as unknown;
+    const schema = JSON.parse(readFileSync(url, 'utf8')) as AnySchemaObject;
     validate = ajv.compile(schema);
     validators.set(type, validate);
   }

@@ -1,0 +1,43 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  vectors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: reference verifier (node:crypto)
+        run: node tools/verify-test-vectors.mjs
+      - name: OpenSSL cross-verification
+        run: bash tools/verify-vectors-openssl.sh
+
+  packages:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: [identity, signed-files, bt-catalog]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci --prefix packages/${{ matrix.pkg }}
+      - run: npm test --prefix packages/${{ matrix.pkg }}
+      - run: npm run build --prefix packages/${{ matrix.pkg }}
+
+  adapters:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg: [email]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci --prefix adapters/${{ matrix.pkg }}
+      - run: npm test --prefix adapters/${{ matrix.pkg }}
+      - run: npm run build --prefix adapters/${{ matrix.pkg }}
+      # GreenMail 集成测试（GREENMAIL=1）在 M5 评审后接入

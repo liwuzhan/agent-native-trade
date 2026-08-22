@@ -1,0 +1,34 @@
+{
+  "name": "@agent-trade/bt-catalog",
+  "version": "0.2.0",
+  "description": "agent-trade/0.2 catalog: canonical manifest build/verify + WebTorrent seed/download + deterministic local tracker for tests (module M4)",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "dht:acceptance": "node scripts/dht-acceptance.mjs"
+  },
+  "dependencies": {
+    "@agent-trade/identity": "file:../identity",
+    "webtorrent": "^3.0.21"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "bittorrent-tracker": "^11.2.3",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  }
+}
