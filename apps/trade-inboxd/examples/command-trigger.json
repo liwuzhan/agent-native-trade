@@ -1,0 +1,14 @@
+{
+  "provider": "agentmail",
+  "inboxId": "replace-me@agentmail.to",
+  "apiKeyEnv": "AGENTMAIL_API_KEY",
+  "dataDir": ".agent-trade/contact",
+  "trigger": {
+    "mode": "command",
+    "argv": [
+      "./bin/handle-wake-task",
+      "{task}"
+    ],
+    "timeoutMs": 300000
+  }
+}

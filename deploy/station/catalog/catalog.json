@@ -4,8 +4,16 @@
   "item_revision": 0,
   "title": "空调维修服务（示例）",
   "description": "请替换为你自己的商品或本地服务目录。",
+  "contact_refs": [
+    {
+      "type": "email",
+      "uri": "mailto:seller@example.net",
+      "profile": "agent-trade-email-v1",
+      "capabilities": ["text", "attachments", "threading"],
+      "priority": 100
+    }
+  ],
   "metadata": {
     "tags": ["同城", "空调维修", "示例"]
   }
 }
-

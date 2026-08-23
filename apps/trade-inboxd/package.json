@@ -1,0 +1,40 @@
+{
+  "name": "@agent-trade/trade-inboxd",
+  "version": "0.2.0",
+  "description": "Event-driven contact inbox daemon that persists metadata-only WakeTasks",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "trade-inboxd": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-trade/contact-agentmail": "file:../../adapters/contact-agentmail",
+    "@agent-trade/contact-core": "file:../../packages/contact-core"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  }
+}

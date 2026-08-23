@@ -6,6 +6,7 @@
 - `../agent-native-trade-protocol-v0.2.md` — 协议总体设计
 - `../agent-native-trade-tech-stack-v0.4.md` — 技术选型（含 §16 联动修订清单、§18 交接说明）
 - `../agent-native-trade-dev-plan-v0.2.md` — 模块拆分与工期
+- [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md) — 联系方式、邮件服务、NAT 收件自触发与开箱安装选型（面向 2026-09）
 
 **本仓库权威源**：`protocol/test-vectors/`。任何实现通过测试向量互验即为合规实现。
 
@@ -17,7 +18,7 @@ node tools/verify-test-vectors.mjs       # 用 node:crypto 验证全部向量
 bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实现）
 ```
 
-## 模块状态（2026-08-23）
+## 模块状态（2026-08-24）
 
 | 模块 | 状态 | 测试 |
 |---|---|---|
@@ -33,6 +34,9 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | M9 mcp-server | ✅ | 28/28（含 stdio 冒烟 + 12 红线） |
 | M10 DSH 集成 | ✅ | 14/14 单测 + 最小链路 9 步演示 + 双 preset 挂载校验 + 会话内往返 |
 | M11 棉花娃娃端到端 | ✅ | 106 断言全绿（run-demo.sh） |
+| Contact core | ✅ 首批实现 | 10/10（联系解析 + WakeTask + 文件队列） |
+| AgentMail contact adapter | ✅ 首批实现 | 7/7（REST + 响应限额 + WebSocket 兼容包络） |
+| `trade-inboxd` | ✅ 首批实现 | 5/5（事件队列 + 可选本地命令触发） |
 
 ### M10 快速开始（DSH 集成）
 
@@ -55,3 +59,19 @@ export AGENT_TRADE_REPO="$(pwd)"                        # DSH 会话进程环境
 可直接部署的双站模板见 `deploy/station/`：同一个 Docker 镜像启动 publisher + indexer，默认只绑定本机端口，适合先接反向代理/隧道再开放。
 
 真实公网 + 双 NAT 电脑的首轮互操作测试见 [`docs/distributed-pilot-test-plan-v0.1.md`](docs/distributed-pilot-test-plan-v0.1.md)：先用轻量索引与可选 HTTP 镜像跑通确定性闭环，再单独测 BT / 公网整合商的目录交付能力。
+
+## 邮件事件入口（首批实现）
+
+`packages/contact-core/`、`adapters/contact-agentmail/` 与 `apps/trade-inboxd/` 已实现邮件到 WakeTask 的最小链路。默认模式只写入本地可靠队列；是否自动回复、调用本地模型、转交另一运行时或等待人工确认，由本机策略决定。
+
+```bash
+npm --prefix packages/contact-core install && npm --prefix packages/contact-core run build
+npm --prefix adapters/contact-agentmail install && npm --prefix adapters/contact-agentmail run build
+npm --prefix apps/trade-inboxd install && npm --prefix apps/trade-inboxd run build
+cp apps/trade-inboxd/examples/agentmail.json apps/trade-inboxd/inboxd.local.json
+export AGENTMAIL_API_KEY='your inbox-scoped key'
+node apps/trade-inboxd/dist/cli.js doctor --config apps/trade-inboxd/inboxd.local.json
+node apps/trade-inboxd/dist/cli.js run --config apps/trade-inboxd/inboxd.local.json
+```
+
+具体边界、供应商选型与后续 Codex 参考接入见 [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md)。

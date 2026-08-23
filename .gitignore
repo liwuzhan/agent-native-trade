@@ -1,5 +1,7 @@
 node_modules/
 dist/
 .data/
+.agent-trade/
+inboxd.local.json
 *.log
 .DS_Store

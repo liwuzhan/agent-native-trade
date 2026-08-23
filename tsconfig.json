@@ -5,8 +5,11 @@
     { "path": "packages/signed-files" },
     { "path": "packages/local-store" },
     { "path": "packages/bt-catalog" },
+    { "path": "packages/contact-core" },
+    { "path": "adapters/contact-agentmail" },
     { "path": "apps/demo-indexer" },
     { "path": "apps/mcp-server" },
+    { "path": "apps/trade-inboxd" },
     { "path": "apps/station" }
   ]
 }

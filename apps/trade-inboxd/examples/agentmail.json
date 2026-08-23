@@ -1,0 +1,10 @@
+{
+  "provider": "agentmail",
+  "inboxId": "replace-me@agentmail.to",
+  "apiKeyEnv": "AGENTMAIL_API_KEY",
+  "dataDir": ".agent-trade/contact",
+  "maxMessageBytes": 10485760,
+  "trigger": {
+    "mode": "none"
+  }
+}

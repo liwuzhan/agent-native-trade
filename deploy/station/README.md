@@ -8,6 +8,6 @@ docker compose --env-file deploy/station/.env -f deploy/station/compose.yaml up 
 curl 'http://127.0.0.1:8787/catalogs?tag=空调维修'
 ```
 
-把 `catalog/catalog.json` 替换为真实目录。对外部署时，把 `.env` 的 `PUBLISHER_PUBLIC_BASE_URL` 改成模型可访问的发布站基址，并由反向代理提供 TLS、限流和访问日志。
+把 `catalog/catalog.json` 替换为真实目录，并把示例 `contact_refs[].uri` 改成卖家邮箱。联系方式位于目录内容中，受到 catalog hash 保护；索引站不能在不改变哈希的情况下替换它。对外部署时，把 `.env` 的 `PUBLISHER_PUBLIC_BASE_URL` 改成模型可访问的发布站基址，并由反向代理提供 TLS、限流和访问日志。
 
 模板默认把两个端口只绑定到 `127.0.0.1`，避免廉价服务器在没有反向代理时直接暴露。需要对外开放时，请显式修改 `compose.yaml` 的端口绑定或接入隧道；完整目录镜像仍是可选项。
