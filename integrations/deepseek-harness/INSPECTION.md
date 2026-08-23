@@ -53,6 +53,9 @@
 1. `parameters`（对象根）**必须开放**：`parameters.additionalProperties must be true or omitted because the implicit parameter root is open`（即对象根不得写 `additionalProperties: false`）；
 2. `output.schema` **不支持 `required` 数组**：`unsupported JSON schema: schema.required is not supported by the value schema DSL`；
 3. `output.schema` 有 properties 时 **`additionalProperties` 必须显式 true/false**：`unsupported JSON schema: schema.additionalProperties must be explicitly true or false`。
+4. **动态沙箱的 `ctx.tools.register` 只收 `harness.defineTool` 产物**：`dynamic tool registration must use a tool returned by harness.defineTool(...)`（静态 preset 插件走真实 registry，不受此限）。
+
+> ⚠️ **静态注册路径教训（2026-08-23 卖方真实会话失败）**：静态插件不经过 `defineTool` 归一化，`parameters` 必须直接是**标准 JSON Schema**（根级 `type:'object'` + properties + required 数组）——给 property-map（无根 type）会原样到达模型适配器：`Invalid schema for function 'catalog_get_item': schema must be a JSON Schema of 'type: "object"', got 'type: null'`（挂载校验 standingKeyFor 不投影模型 schema，拦不住此错；真实会话才暴露）。plugin.mjs 的 `dshParametersOf` 已改为直接产出标准形态，并有单测锁死。
 
 通过校验的正例（pkg-4）即第三部分速查。`harness.registerTool(ctx, tool)` 返回 disposer，注册随 Fiber 生命周期（A3 实测）。
 

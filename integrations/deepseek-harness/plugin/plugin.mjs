@@ -40,23 +40,30 @@ const OUTPUT_SCHEMA = {
 };
 
 /**
- * 标准 JSON Schema → DSH 注册层形态（打包静态插件的属性映射风格，
- * 行内 required: true —— 见 dsh-tool-bash/lib/index.js L262 实测先例）。
+ * 标准 JSON Schema → 注册层形态：直接产出**标准 JSON Schema**（根级
+ * type:'object' + properties + required 数组）。
+ *
+ * 教训（2026-08-23 卖方真实会话失败）：静态注册路径不经过 defineTool 的
+ * schemastery 归一化，若给 property-map（无根 type）会原样到达模型适配器，
+ * 报 "schema must be a JSON Schema of 'type: \"object\"', got 'type: null'"。
+ * 打包工具的 parameters 内部归一化结果即 {type:'object', properties, required[]}
+ * （对照模型侧 bash 工具 schema 实测），本转换器直接产出该形态。
  */
-function dshParametersOf(schema) {
-  const out = {};
-  const properties = schema && typeof schema === 'object' ? schema.properties ?? {} : {};
-  const required = Array.isArray(schema && schema.required) ? schema.required : [];
-  for (const [key, def] of Object.entries(properties)) {
+export function dshParametersOf(schema) {
+  const properties = {};
+  const source = schema && typeof schema === 'object' ? schema : {};
+  const sourceProperties = source.properties && typeof source.properties === 'object' ? source.properties : {};
+  for (const [key, def] of Object.entries(sourceProperties)) {
     if (def === null || typeof def !== 'object') continue;
     const entry = {};
     if (typeof def.type === 'string') entry.type = def.type;
     if (typeof def.description === 'string') entry.description = def.description;
     if (Array.isArray(def.enum)) entry.enum = def.enum;
-    if (required.includes(key)) entry.required = true;
     if (def.type === 'array' && def.items && typeof def.items.type === 'string') entry.items = { type: def.items.type };
-    out[key] = entry;
+    properties[key] = entry;
   }
+  const out = { type: 'object', properties };
+  if (Array.isArray(source.required) && source.required.length > 0) out.required = source.required;
   return out;
 }
 
