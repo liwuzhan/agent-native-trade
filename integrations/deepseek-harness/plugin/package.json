@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@agent-trade/bt-catalog": "file:../../../packages/bt-catalog",
+    "@agent-trade/contact-agentmail": "file:../../../adapters/contact-agentmail",
+    "@agent-trade/contact-core": "file:../../../packages/contact-core",
     "@agent-trade/email": "file:../../../adapters/email",
     "@agent-trade/human-task": "file:../../../adapters/human-task",
     "@agent-trade/identity": "file:../../../packages/identity",

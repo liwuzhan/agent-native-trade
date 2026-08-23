@@ -99,6 +99,16 @@
 - agent.cordis.yml 只含逐字取自打包样例的已验证行；交易工具挂载留 TODO(runtime) 占位。
 - M10 会话内验收（搜索→议价→双签）必须在真实 DSH 环境执行，不进 CI。
 
+## 取舍登记（M10 contact bridge，2026-08-24）
+
+- **范围对齐文档 §8.4/§5.2**：DSH 插件新增 5 工具（contact_wake_list/ack + contact_message_get/reply/send，共 23），daemon 加联系 provider 层（`src/contact/provider.ts`：agentmail REST / maildrop loopback 双后端，缺省 maildrop 保本地演示零外网依赖）。**不 watch**：长连接与 WakeTask 生成留在 trade-inboxd，daemon 只按需取信/回信。
+- **message_ref 线上形状** = WakeTask.message_ref（snake_case {provider, inbox_id, message_id}）；contact_send/reply 返回的 ref 是**发件侧作用域**（agentmail SentRef 语义），收件侧 ref 由来信事件/WakeTask 送达 —— 与真实 provider 行为一致，本地 loopback 由演示 inboxd-sim 模拟同一契约。
+- **工具级 summary 上限**（server.ts SUMMARY_CAPS）：contact_message_get 96 KiB（正文 64 KiB 截断 + 余量）、contact_wake_list 16 KiB（≤20 小信封）；其余工具保持 500 字符硬线。bridge contract 的"按需取正文"是有界例外，注册层 output.schema 不变。
+- **M5 加法变更**：@agent-trade/email 导出 parseRaw（含 subject 字段），供 maildrop 联系适配器复用同一 MIME 解析器；M5 原有 47 测试不动。
+- **maildrop 联系适配器不实现 watch()**（调用即明确报错）：轮询/长连接是 inboxd 职责；本地演示的 WakeTask 由 examples/contact-flow.mjs 按 FileWakeQueue 同格式写入（与生产队列二进制兼容）。
+- **未做（登记 FUTURE）**：DSH 非交互唤醒（inboxd command trigger → DSH 会话，文档 P5/Go-no-go 后）；agentmail 会话的真实最小权限 key 黑盒验收；contact_refs 与目录 schema 的端到端接线（当前 contact_send 的 to 由模型从目录条目自行解析）；wake 队列的 done/ 归档与洪泛限流策略。
+- **验收**：plugin 28/28 单测绿 + contact-flow 6 步演示（16 断言）+ M10 9 步演示不回归；preset 行 config 与 plugin.mjs 注册路径沿用运行时已验证接口（INSPECTION.md 3.1），无新增 Cordis API 探测项。
+
 ## 取舍登记（M10 DSH 集成完成，2026-08-23）
 
 - **架构**：零依赖静态插件（plugin.mjs，随 preset 目录分发，行 `name: './plugin.mjs'`）+ 仓库内 JSONL daemon（subprocess stdin pipe）持 TradeApp 单例；逻辑层复用 M9 handlers（mcp-server 增子路径导出），密码学/红线全在 daemon。依据：动态插件沙箱无 crypto/Buffer/process（INSPECTION.md B8）。

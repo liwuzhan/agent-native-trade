@@ -11,6 +11,7 @@ export interface ParsedMail {
   messageId: string;
   inReplyTo?: string;
   from: string;
+  subject: string;
   text: string;
   /** Value of the `X-Trade-Id` header ('' when absent). */
   tradeId: string;
@@ -34,7 +35,6 @@ export async function parseRaw(source: Buffer): Promise<ParsedMail> {
   const from = mail.from?.value?.[0]?.address ?? '';
   const messageId = mail.messageId ?? '';
   const inReplyTo = firstString(mail.inReplyTo);
-
   const attachments: ParsedAttachment[] = [];
   for (const a of mail.attachments) {
     if (!a.filename) continue;
@@ -48,6 +48,7 @@ export async function parseRaw(source: Buffer): Promise<ParsedMail> {
     messageId,
     inReplyTo,
     from,
+    subject: mail.subject ?? '',
     text: mail.text ?? '',
     tradeId,
     attachments,

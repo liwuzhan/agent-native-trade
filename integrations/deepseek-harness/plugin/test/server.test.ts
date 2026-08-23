@@ -374,13 +374,18 @@ describe('daemon JSONL 冒烟', () => {
 });
 
 describe('工具规格与注册层一致性', () => {
-  it('tool-spec.json 与 daemon 分发表对齐（18 工具）', async () => {
+  it('tool-spec.json 与 daemon 分发表对齐（23 工具）', async () => {
     const spec = JSON.parse(readFileSync(new URL('../tool-spec.json', import.meta.url), 'utf8')) as { tools: { name: string }[] };
     const names = spec.tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
         'catalog_get_item',
         'catalog_search',
+        'contact_message_get',
+        'contact_reply',
+        'contact_send',
+        'contact_wake_ack',
+        'contact_wake_list',
         'human_task_cancel',
         'human_task_complete',
         'human_task_create',

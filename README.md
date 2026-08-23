@@ -32,11 +32,12 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | M7 human-task | ✅ | 23/23 |
 | M8 demo-indexer | ✅ | 30/30 |
 | M9 mcp-server | ✅ | 28/28（含 stdio 冒烟 + 12 红线） |
-| M10 DSH 集成 | ✅ | 14/14 单测 + 最小链路 9 步演示 + 双 preset 挂载校验 + 会话内往返 |
+| M10 DSH 集成 | ✅ | 28/28 单测 + 最小链路 9 步演示 + contact bridge 6 步演示 + 双 preset 挂载校验 + 会话内往返 |
 | M11 棉花娃娃端到端 | ✅ | 106 断言全绿（run-demo.sh） |
 | Contact core | ✅ 首批实现 | 10/10（联系解析 + WakeTask + 文件队列） |
 | AgentMail contact adapter | ✅ 首批实现 | 7/7（REST + 响应限额 + WebSocket 兼容包络） |
 | `trade-inboxd` | ✅ 首批实现 | 5/5（事件队列 + 可选本地命令触发） |
+| DSH contact bridge | ✅ 首批实现 | 5 新工具（wake list/ack + message get/reply/send，23 工具）随 M10 单测与演示验收 |
 
 ### M10 快速开始（DSH 集成）
 
@@ -44,8 +45,11 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 bash integrations/deepseek-harness/install-presets.sh   # 构建 + 安装 trade-buyer/trade-seller preset
 node integrations/deepseek-harness/examples/setup-catalog.mjs  # 预置演示身份/目录
 bash integrations/deepseek-harness/examples/run-demo.sh # 最小链路 9 步脚本化演示
+bash integrations/deepseek-harness/examples/run-contact-demo.sh # contact bridge 6 步演示（WakeTask→取信→回信→ack）
 export AGENT_TRADE_REPO="$(pwd)"                        # DSH 会话进程环境（行 config 兜底）
 ```
+
+contact bridge（runtime bridge contract 的 DSH 侧）：daemon 新增 `contact_wake_list/ack`、`contact_message_get`、`contact_reply`、`contact_send` 五个工具（共 23 工具）。默认 provider `maildrop` 为本地 loopback（无外网依赖）；真实邮箱把 preset 行 config 的 `contactProvider` 切到 `agentmail` 并设 `AGENTMAIL_API_KEY` + `AGENT_TRADE_CONTACT_INBOX_ID`，WakeTask 队列指向 `trade-inboxd` 的 dataDir（`AGENT_TRADE_WAKE_QUEUE`）。长连接与 WakeTask 生成留在 `trade-inboxd`，DSH 会话只按需取信/回信。
 
 接口探测记录：`integrations/deepseek-harness/INSPECTION.md`（运行时验证过的 Cordis API）。
 

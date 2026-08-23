@@ -10,3 +10,7 @@ export { createMailAdapter } from './adapter.js';
 export type { InboundMsg, MailAdapter, MailConfig, OutboundMsg } from './types.js';
 export type { EnvelopeMeta, MailboxSource } from './imap.js';
 export type { SendPayload, SendTransport } from './smtp.js';
+// parseRaw 供 M10+ 的 file-maildrop 联系适配器（DSH plugin contact provider）
+// 复用同一 MIME 解析器：只导出纯函数，不改变 M5 现有测试与公开契约。
+export { parseRaw } from './parse.js';
+export type { ParsedAttachment, ParsedMail } from './parse.js';

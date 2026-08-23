@@ -67,4 +67,17 @@ describe('dshParametersOf（plugin.mjs 注册层转换）', () => {
     const contact = spec.tools.find((t) => t.name === 'trade_contact_seller')!;
     expect(dshParametersOf(contact.parameters).properties.attachments.type).toBe('array');
   });
+
+  it('contact bridge 工具：message_ref 为 object、to 为 string array（注册层形状）', () => {
+    const get = spec.tools.find((t) => t.name === 'contact_message_get')!;
+    const getParams = dshParametersOf(get.parameters);
+    expect(getParams.required).toEqual(['message_ref']);
+    expect(getParams.properties.message_ref).toMatchObject({ type: 'object' });
+    const send = spec.tools.find((t) => t.name === 'contact_send')!;
+    const sendParams = dshParametersOf(send.parameters);
+    expect(sendParams.properties.to).toMatchObject({ type: 'array', items: { type: 'string' } });
+    expect(sendParams.required).toEqual(['to', 'text']);
+    const reply = spec.tools.find((t) => t.name === 'contact_reply')!;
+    expect(dshParametersOf(reply.parameters).required).toEqual(['message_ref', 'text']);
+  });
 });

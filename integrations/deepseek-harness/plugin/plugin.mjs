@@ -1,9 +1,9 @@
 /**
- * plugin.mjs — agent-trade/0.2 DSH 集成插件（模块 M10）。
+ * plugin.mjs — agent-trade/0.2 DSH 集成插件（模块 M10 + 联系 bridge）。
  *
  * 零依赖 ESM 静态 Cordis 插件：作为 preset 行加载（`name: './plugin.mjs'`，
  * 行解析规则见 INSPECTION.md 1.2）。职责（薄封装）：
- *   - 把 tool-spec.json 的 18 个工具注册到会话作用域（ctx.tools.register）；
+ *   - 把 tool-spec.json 的 23 个工具注册到会话作用域（ctx.tools.register）；
  *   - 每个工具 = 参数透传 + 懒启动 JSONL daemon（subprocess stdin pipe）+ 返回裁剪；
  *   - 交易逻辑、密码学、红线校验全部在 daemon（@agent-trade/* 包）内完成。
  *
@@ -16,6 +16,10 @@
  *   maildropDir  邮件 spool 根，缺省 <tradeDir>/.data/maildrop
  *   mailAddress  本 daemon 收件地址，缺省 'agent@trade.local'
  *   mailPeer     trade_contact_seller 默认收件方
+ *   wakeQueueDir WakeTask 队列根（trade-inboxd dataDir），缺省 AGENT_TRADE_WAKE_QUEUE
+ *   contactProvider 联系 provider：agentmail | maildrop（缺省 AGENT_TRADE_CONTACT_PROVIDER ?? 'maildrop'）
+ *   contactApiKeyEnv agentmail apiKey 环境变量名（缺省 AGENTMAIL_API_KEY）
+ *   contactInboxId 联系 inbox（agentmail=inboxId；maildrop 缺省同 mailAddress）
  *   nodeBin      node 可执行文件，缺省 'node'
  *   toolTimeoutMs 单次工具调用超时（缺省 60000）；超时/中止会 terminate daemon 并要求下次重建
  *
@@ -84,6 +88,10 @@ function makeDaemonClient(ctx, config) {
   if (config.maildropDir) argvArgs.push('--maildrop', config.maildropDir);
   if (config.mailAddress) argvArgs.push('--mail-address', config.mailAddress);
   if (config.mailPeer) argvArgs.push('--mail-peer', config.mailPeer);
+  if (config.wakeQueueDir) argvArgs.push('--wake-queue', config.wakeQueueDir);
+  if (config.contactProvider) argvArgs.push('--contact-provider', config.contactProvider);
+  if (config.contactApiKeyEnv) argvArgs.push('--contact-api-key-env', config.contactApiKeyEnv);
+  if (config.contactInboxId) argvArgs.push('--contact-inbox-id', config.contactInboxId);
 
   let handle = null;        // SubprocessHandle | null
   let readyResolve = null;  // () => void
@@ -257,6 +265,18 @@ export function apply(ctx, config = {}) {
     maildropDir: typeof config.maildropDir === 'string' && config.maildropDir.length > 0 ? config.maildropDir : undefined,
     mailAddress: typeof config.mailAddress === 'string' && config.mailAddress.length > 0 ? config.mailAddress : undefined,
     mailPeer: typeof config.mailPeer === 'string' && config.mailPeer.length > 0 ? config.mailPeer : undefined,
+    wakeQueueDir:
+      typeof config.wakeQueueDir === 'string' && config.wakeQueueDir.length > 0
+        ? config.wakeQueueDir
+        : process.env.AGENT_TRADE_WAKE_QUEUE,
+    contactProvider:
+      typeof config.contactProvider === 'string' && (config.contactProvider === 'agentmail' || config.contactProvider === 'maildrop')
+        ? config.contactProvider
+        : process.env.AGENT_TRADE_CONTACT_PROVIDER === 'agentmail'
+          ? 'agentmail'
+          : undefined,
+    contactApiKeyEnv: typeof config.contactApiKeyEnv === 'string' && config.contactApiKeyEnv.length > 0 ? config.contactApiKeyEnv : undefined,
+    contactInboxId: typeof config.contactInboxId === 'string' && config.contactInboxId.length > 0 ? config.contactInboxId : undefined,
     nodeBin: typeof config.nodeBin === 'string' && config.nodeBin.length > 0 ? config.nodeBin : 'node',
     toolTimeoutMs: typeof config.toolTimeoutMs === 'number' && config.toolTimeoutMs > 0 ? config.toolTimeoutMs : DEFAULT_TIMEOUT_MS,
   };

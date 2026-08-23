@@ -6,6 +6,8 @@
  *   （只读公钥导入；私钥永不离开本机 —— 公钥不是秘密，红线只约束私钥）；
  * - humanTasks：M7 文件化 human-task store（.data/tasks/，可单测）；
  * - mail：M5 邮件适配器（file-maildrop loopback；生产换 SMTP/IMAP URL）；
+ * - contact：联系 provider（agentmail REST / maildrop loopback）——contact_* 工具后端；
+ * - wakeQueue：trade-inboxd 写入的 WakeTask 队列（FileWakeQueue，pending/ + done/）；
  * - catalogDir / mailAddress / mailPeer / localTracker / seeds：M10 专属配置。
  */
 
@@ -18,7 +20,11 @@ import { createHumanTaskStore } from '@agent-trade/human-task';
 import type { HumanTaskStore } from '@agent-trade/human-task';
 import { createTradeApp } from '@agent-trade/mcp-server/app';
 import type { TradeApp } from '@agent-trade/mcp-server/app';
+import { FileWakeQueue } from '@agent-trade/contact-core';
+import type { ContactAdapter } from '@agent-trade/contact-core';
 
+import { createContactAdapter } from './contact/provider.js';
+import type { ContactProviderKind } from './contact/provider.js';
 import { FileMailboxSource, FileSendTransport } from './maildrop.js';
 
 export interface DshAppOptions {
@@ -36,6 +42,16 @@ export interface DshAppOptions {
   mailPeer?: string;
   /** 本地 tracker 端口（0/缺省 = 不启动）。 */
   trackerPort?: number;
+  /** WakeTask 队列根（trade-inboxd 的 dataDir：pending/ + done/）；缺省 <dir>/.data/contact。 */
+  wakeQueueDir?: string;
+  /** 联系 provider：agentmail（真实邮箱 REST）或 maildrop（本地 loopback，缺省）。 */
+  contactProvider?: ContactProviderKind;
+  /** agentmail：apiKey 所在环境变量名（缺省 AGENTMAIL_API_KEY）。 */
+  contactApiKeyEnv?: string;
+  /** agentmail：本 daemon inbox；maildrop：收件地址（缺省同 mailAddress）。 */
+  contactInboxId?: string;
+  /** 单封邮件大小门限（agentmail REST 响应上限）。 */
+  contactMaxMessageBytes?: number;
 }
 
 export interface DshApp extends TradeApp {
@@ -48,6 +64,14 @@ export interface DshApp extends TradeApp {
   localTracker: number | undefined;
   /** 做种句柄：object_id → stop()。daemon 关闭时统一停止。 */
   seeds: Map<string, () => Promise<void>>;
+  /** 联系 provider（agentmail REST / maildrop loopback）——contact_* 工具后端。 */
+  contact: ContactAdapter;
+  /** 联系 provider 种类（contact_* 工具与 wake 过滤共用）。 */
+  contactProvider: ContactProviderKind;
+  /** 本 daemon 的联系 inbox（wake 列表过滤键；agentmail=inboxId，maildrop=收件地址）。 */
+  contactInboxId: string;
+  /** trade-inboxd 写入的 WakeTask 队列（pending/ + done/）。 */
+  wakeQueue: FileWakeQueue;
 }
 
 function readPeerKey(peerDir: string, agentId: string): string | undefined {
@@ -82,6 +106,18 @@ export function createDshApp(opts: DshAppOptions): DshApp {
 
   const seeds = new Map<string, () => Promise<void>>();
 
+  const contactProvider: ContactProviderKind = opts.contactProvider ?? 'maildrop';
+  const contactInboxId = opts.contactInboxId ?? mailAddress;
+  const contact = createContactAdapter({
+    provider: contactProvider,
+    apiKeyEnv: opts.contactApiKeyEnv,
+    inboxId: contactInboxId,
+    maxMessageBytes: opts.contactMaxMessageBytes,
+    spoolRoot: maildropDir,
+    fromAddress: mailAddress,
+  });
+  const wakeQueue = new FileWakeQueue(opts.wakeQueueDir ?? join(opts.dir, '.data', 'contact'));
+
   const app: DshApp = {
     ...base,
     catalogDir: opts.catalogDir ?? join(opts.dir, '.data', 'catalog'),
@@ -91,6 +127,10 @@ export function createDshApp(opts: DshAppOptions): DshApp {
     mailPeer: opts.mailPeer,
     localTracker: opts.trackerPort && opts.trackerPort > 0 ? opts.trackerPort : undefined,
     seeds,
+    contact,
+    contactProvider,
+    contactInboxId,
+    wakeQueue,
     // 信任环：本地私钥派生 + 只读公钥导入（peers/）
     resolveKey(signer: string): string | undefined {
       return base.resolveKey(signer) ?? readPeerKey(peerDir, signer);
@@ -98,6 +138,7 @@ export function createDshApp(opts: DshAppOptions): DshApp {
     close(): void {
       base.close();
       void mail.close();
+      void contact.close();
       for (const stop of seeds.values()) void stop().catch(() => undefined);
       seeds.clear();
     },

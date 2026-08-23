@@ -151,7 +151,13 @@ export class FileSendTransport implements SendTransport {
     this.#fromAddress = fromAddress;
   }
 
+  // SendTransport 契约是 Promise<void>；联系 provider 需要真实 Message-ID，
+  // 因此单开 sendWithId（send 保留 void 契约，见 M10 测试对接口形状的锁定）。
   async send(payload: SendPayload): Promise<void> {
+    await this.sendWithId(payload);
+  }
+
+  async sendWithId(payload: SendPayload): Promise<string> {
     const dir = addressDir(this.#spoolRoot, payload.to);
     let maxUid = 0;
     for (const name of readdirSync(dir)) {
@@ -168,6 +174,7 @@ export class FileSendTransport implements SendTransport {
     writeFileSync(metaTmp, JSON.stringify(meta));
     renameSync(emlTmp, join(dir, `${uid}.eml`));
     renameSync(metaTmp, join(dir, `${uid}.meta.json`));
+    return messageId;
   }
 
   async close(): Promise<void> {

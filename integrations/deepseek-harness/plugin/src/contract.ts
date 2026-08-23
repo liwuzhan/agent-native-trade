@@ -47,12 +47,14 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
 /**
  * 把 handler 返回的摘要对象包成 canonical 值。
  * `object_id` 取摘要对象的 object_id 字段（无则空串）；summary = 紧凑 JSON 文本。
- * 序列化长度 ≥ MAX_RESPONSE_CHARS 时抛错（M9 同款硬断言）。
+ * 序列化长度 ≥ maxChars 时抛错（M9 同款硬断言；缺省 MAX_RESPONSE_CHARS）。
+ * contact bridge 工具按 bridge contract 放宽（按需取正文是有界例外，见
+ * server.ts SUMMARY_CAPS）。
  */
-export function wrapResult(value: Record<string, unknown>): DshToolResult {
+export function wrapResult(value: Record<string, unknown>, maxChars = MAX_RESPONSE_CHARS): DshToolResult {
   const text = JSON.stringify(value);
-  if (text.length >= MAX_RESPONSE_CHARS) {
-    throw new Error(`internal error: tool summary too long (${text.length} chars >= ${MAX_RESPONSE_CHARS})`);
+  if (text.length >= maxChars) {
+    throw new Error(`internal error: tool summary too long (${text.length} chars >= ${maxChars})`);
   }
   return {
     ok: true,

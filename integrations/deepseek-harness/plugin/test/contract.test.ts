@@ -17,6 +17,16 @@ describe('wrapResult', () => {
     expect(() => wrapResult({ object_id: 'x'.repeat(600) })).toThrow(/too long/);
   });
 
+  it('按工具级上限放宽（contact bridge：按需取正文是有界例外）', () => {
+    const big = { object_id: 'message:maildrop:a:b', text: 'x'.repeat(1000) };
+    expect(() => wrapResult(big)).toThrow(/too long/);
+    const relaxed = wrapResult(big, 96 * 1024);
+    expect(relaxed.ok).toBe(true);
+    expect(relaxed.summary).toBe(JSON.stringify(big));
+    // 上限本身仍是硬断言
+    expect(() => wrapResult({ text: 'y'.repeat(97 * 1024) }, 96 * 1024)).toThrow(/too long/);
+  });
+
   it('无 object_id 字段时回退为空串', () => {
     expect(wrapResult({ foo: 1 }).object_id).toBe('');
   });
