@@ -31,4 +31,4 @@ description: 按 agent-trade/0.2 规范 §3 四步验签 DEAL：① 重算 body_
 - 只执行④而跳过①的实现等于没有验证（"改 body 不改 hash"攻击的测试向量：`deal-tampered-body-keep-hash`）。
 - 多条签名须逐条有效；增签不破旧签，验证任何一版签名都基于同一 `body_hash`。
 - 与 `trade-verify-receipt`（TRADE_RECEIPT 的验证）是不同工具，不要混用。
-- 注册细节待运行时探测：见 `integrations/deepseek-harness/INSPECTION.md` 第二部分。
+- DSH 工具注册接口与运行时验证记录见 `integrations/deepseek-harness/INSPECTION.md`。

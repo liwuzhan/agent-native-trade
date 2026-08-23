@@ -2,10 +2,9 @@
 
 以模型为主体的开放交易闭环协议 · 参考实现（Apache-2.0）。
 
-**文档**（设计权威，先读）：
-- `../agent-native-trade-protocol-v0.2.md` — 协议总体设计
-- `../agent-native-trade-tech-stack-v0.4.md` — 技术选型（含 §16 联动修订清单、§18 交接说明）
-- `../agent-native-trade-dev-plan-v0.2.md` — 模块拆分与工期
+**入口文档**：
+- [`AGENT_SETUP.md`](AGENT_SETUP.md) — 给模型的接入说明：模型自行安装、配置和验证，只向人类索取不可自动取得的账号/授权
+- [`protocol/specification.md`](protocol/specification.md) — 仓库内协议规范；冲突处以 Schema 与测试向量为准
 - [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md) — 联系方式、邮件服务、NAT 收件自触发与开箱安装选型（面向 2026-09）
 
 **本仓库权威源**：`protocol/test-vectors/`。任何实现通过测试向量互验即为合规实现。
@@ -23,6 +22,8 @@ Buyer / Seller ← DSH contact bridge ← WakeTask queue ← trade-inboxd ← Em
 ```
 
 这里保持三个边界：协议对象不依赖客户端；`trade-inboxd` 负责长连接和可靠入队；DSH 只在需要时读取正文、回复并确认 WakeTask。邮件正文和附件始终是不可信数据。
+
+> **如果你是接入模型**：先读 [`AGENT_SETUP.md`](AGENT_SETUP.md)，自行检查环境并完成能自动完成的步骤。只有邮箱账号、API Key、外部授权或现实动作确实缺失时才引导人类；不要把命令清单原样转交给人类。
 
 ## 协议向量快速校验
 
@@ -55,6 +56,8 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 
 ### M10 快速开始（DSH 集成）
 
+干净克隆先按 [`AGENT_SETUP.md`](AGENT_SETUP.md) 安装并按依赖顺序构建；下面命令假定依赖已经就绪。
+
 ```bash
 bash integrations/deepseek-harness/install-presets.sh   # 构建 + 安装 trade-buyer/trade-seller preset
 node integrations/deepseek-harness/examples/setup-catalog.mjs  # 预置演示身份/目录
@@ -64,6 +67,12 @@ export AGENT_TRADE_REPO="$(pwd)"                        # DSH 会话进程环境
 ```
 
 contact bridge（runtime bridge contract 的 DSH 侧）：daemon 新增 `contact_wake_list/ack`、`contact_message_get`、`contact_reply`、`contact_send` 五个工具（共 23 工具）。默认 provider `maildrop` 为本地 loopback（无外网依赖）；真实邮箱把 preset 行 config 的 `contactProvider` 切到 `agentmail` 并设 `AGENTMAIL_API_KEY` + `AGENT_TRADE_CONTACT_INBOX_ID`，WakeTask 队列指向 `trade-inboxd` 的 dataDir（`AGENT_TRADE_WAKE_QUEUE`）。长连接与 WakeTask 生成留在 `trade-inboxd`，DSH 会话只按需取信/回信。当前完成的是会话内 pull bridge；`trade-inboxd` 主动启动/恢复 DSH 会话仍登记在 `FUTURE.md`。
+
+### 结算能力边界
+
+`DEAL.settlement` 允许双方约定任意资产与结算方式；参考实现不托管资金。没有模型钱包时，模型仍应继续发现、联系、议价和签约，再选择人工转账、商家内嵌支付、担保或其他双方可执行的方式。当前适配器只实现测试券和人工付款。
+
+V0.2 状态机采用付款后履约顺序，因此货到付款、账期和分阶段付款尚不能跑完整参考状态链。模型不得伪造 `PAYMENT_CONFIRMED`；该缺口已登记在 [`FUTURE.md`](FUTURE.md)。
 
 接口探测记录：`integrations/deepseek-harness/INSPECTION.md`（运行时验证过的 Cordis API）。
 
@@ -86,10 +95,11 @@ contact bridge（runtime bridge contract 的 DSH 侧）：daemon 新增 `contact
 npm --prefix packages/contact-core install && npm --prefix packages/contact-core run build
 npm --prefix adapters/contact-agentmail install && npm --prefix adapters/contact-agentmail run build
 npm --prefix apps/trade-inboxd install && npm --prefix apps/trade-inboxd run build
-cp apps/trade-inboxd/examples/agentmail.json apps/trade-inboxd/inboxd.local.json
+mkdir -p "$HOME/.agent-trade"
+cp apps/trade-inboxd/examples/agentmail.json "$HOME/.agent-trade/inboxd.json"
 export AGENTMAIL_API_KEY='your inbox-scoped key'
-node apps/trade-inboxd/dist/cli.js doctor --config apps/trade-inboxd/inboxd.local.json
-node apps/trade-inboxd/dist/cli.js run --config apps/trade-inboxd/inboxd.local.json
+node apps/trade-inboxd/dist/cli.js doctor --config "$HOME/.agent-trade/inboxd.json"
+node apps/trade-inboxd/dist/cli.js run --config "$HOME/.agent-trade/inboxd.json"
 ```
 
-生产路径为 AgentMail WebSocket → `trade-inboxd` → WakeTask 队列 → runtime bridge；本地演示用 `maildrop` + `inboxd-sim` 生成相同文件格式，不依赖外网。具体边界、供应商选型与后续 Codex 参考接入见 [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md)，明确推迟项见 [`FUTURE.md`](FUTURE.md)。
+把配置中的 `inboxId` 改成真实 inbox，并把 `dataDir` 改成 `contact`；由于配置文件位于 `$HOME/.agent-trade/`，它会与 DSH 默认的 `$HOME/.agent-trade/contact` 队列对齐。生产路径为 AgentMail WebSocket → `trade-inboxd` → WakeTask 队列 → runtime bridge；本地演示用 `maildrop` + `inboxd-sim` 生成相同文件格式，不依赖外网。完整的模型接入步骤见 [`AGENT_SETUP.md`](AGENT_SETUP.md)，明确推迟项见 [`FUTURE.md`](FUTURE.md)。

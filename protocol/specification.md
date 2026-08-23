@@ -1,7 +1,7 @@
 # agent-trade/0.2 协议规范（规范层）
 
-> 本文件是协议的**规范性**定义。总体设计见 `agent-native-trade-protocol-v0.2.md`；
-> 冲突处以本文件与测试向量为准（联动修订清单见技术选型 V0.4 §16）。
+> 本文件是协议的**规范性**定义。
+> 冲突处以本文件、`protocol/schemas/` 与测试向量为准。
 > 权威源：`protocol/test-vectors/`。任何实现通过测试向量互验即为合规实现。
 
 ## 1. 签名信封（全部四个对象通用）
@@ -52,6 +52,7 @@ object_id    = "sha256:" + lowerhex( SHA-256( signing_input ) )
 - **TRADE_EVENT**：单签；`event_type` 枚举见 schema；`evidence` 自由结构，私密引用不公开。
 - **TRADE_RECEIPT**：单签；`evidence` 为可验证引用（`deal_ref.object_id + body_hash` + 事件引用 + 可选 `bundle` 打包）；披露分三档（不广播 / 互引回执 / 公开证据包），权重由收录方自定。
 - **交易状态机**：`AGREED → PAYMENT_PENDING → PAYMENT_CONFIRMED → FULFILLING → SHIPPED → DELIVERED → COMPLETED`；分支 `DISPUTED / RESOLVED / CANCELLED`。付款事件不越级，`COMPLETED` 只能由 DELIVERED 之后的事件触发。
+- **V0.2 结算顺序限制**：`DEAL.settlement.method` 是开放字符串，但上述参考状态机只覆盖付款确认后履约。货到付款、账期和分阶段付款可以写入 DEAL，却不能在 V0.2 中伪造 `PAYMENT_CONFIRMED` 来强行闭环；这些顺序需要后续版本增加状态分支。
 
 ## 5. 编码约定汇总
 

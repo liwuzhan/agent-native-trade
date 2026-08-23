@@ -13,6 +13,9 @@
 #   AGENT_TRADE_DATA_DIR    覆盖买方/卖方 tradeDir
 #   AGENT_TRADE_CATALOG_DIR 覆盖共享目录根
 #   AGENT_TRADE_MAILDROP    覆盖共享邮件 spool 根
+#
+# 本脚本只安装 preset，不是干净克隆的全仓安装器。模型接入流程、依赖构建顺序、
+# AgentMail 配置和验收标准见仓库根 AGENT_SETUP.md。
 set -eu
 cd "$(dirname "$0")"
 
@@ -42,10 +45,12 @@ done
 cat <<EOF
 
 安装完成。下一步：
-  1) 导出仓库根（DSH 会话进程环境）：export AGENT_TRADE_REPO="$REPO_ROOT"
-  2) 新建 DSH 会话时选择 preset「交易买方」/「交易卖方」；
-  3) 目录演示数据：node integrations/deepseek-harness/examples/setup-catalog.mjs
-  4) 最小链路脚本化演示：bash integrations/deepseek-harness/examples/run-demo.sh
-  5) 挂载校验（在带 cordis 工具的会话内）：
+  1) 阅读 $REPO_ROOT/AGENT_SETUP.md；先跑本地回环，再接真实邮箱；
+  2) 导出仓库根（DSH 会话进程环境）：export AGENT_TRADE_REPO="$REPO_ROOT"
+  3) 新建 DSH 会话时选择 preset「交易买方」/「交易卖方」；
+  4) 目录演示数据：node integrations/deepseek-harness/examples/setup-catalog.mjs
+  5) 最小链路脚本化演示：bash integrations/deepseek-harness/examples/run-demo.sh
+  6) contact bridge 演示：bash integrations/deepseek-harness/examples/run-contact-demo.sh
+  7) 挂载校验（在带 cordis 工具的会话内）：
        agentPresets.standingKeyFor('trade-buyer') / ('trade-seller')
 EOF

@@ -4,7 +4,7 @@
 > 面向时间：2026-09
 > 资料核验：2026-08-24
 > 范围：联系信息、邮件服务、收件自触发、低上下文运行时与开箱安装
-> 不在本文范围：支付、物流、DSH 插件修改、Codex 具体接入代码
+> 不在本文范围：支付、物流、Codex 具体接入代码；DSH contact bridge 的完成状态仅作边界记录
 
 ## 0. 结论
 
@@ -16,7 +16,7 @@
 4. **新增独立的 `trade-inboxd` 常驻进程。** 首批已实现连接、断线重连、幂等队列与小型 `WakeTask`；显式 API 补拉、限流和本地邮件隔离库在后续 P2 增量完成。模型不直接轮询邮箱，也不把整封邮件自动塞进上下文。
 5. **Nylas 是第二托管实现，Stalwart 是自托管出口。** Nylas 适合需要批量代理邮箱、日历和标准 IMAP 的场景；Stalwart 部署在有公网 IP 的服务器上，为不希望长期依赖 SaaS 的社区节点提供 JMAP WebSocket / IMAP / SMTP。
 6. **MailSlurp 用于兼容与测试；Resend 用于公网 webhook/大批量发信。** 两者均不作为两个 NAT 端代理的默认收件方案。
-7. **客户端各自验证，仓库只维护 Codex 参考接入。** DSH 由项目发起人在本地适配和验证；TRAE 等其他客户端复用公开 bridge contract 与测试向量，由各自维护者或社区自行实现。Codex 接入在联系运行时稳定后由本仓库单独立项。
+7. **客户端各自验证。** DSH contact bridge 已作为首个参考客户端落地；Codex 接入由本仓库后续单独立项。TRAE 等其他客户端复用公开 bridge contract 与测试向量，由各自维护者或社区自行实现。
 
 一句话概括：**协议用 Email，默认账户用 AgentMail，默认唤醒用 WebSocket，标准退路用 SMTP + IMAP IDLE，运行时用 `trade-inboxd` 把邮件压缩成可恢复、可限权的任务。**
 
@@ -313,35 +313,33 @@ export interface ContactAdapter {
 
 ---
 
-## 7. 开箱安装目标
+## 7. 模型接入目标
 
-人类理想操作是把一个固定版本的仓库/Release 地址交给代理。代理读取 `AGENT_INSTALL.md` 后完成检测和安装；唯一不可消除的人工步骤是授权邮箱账户或输入一次 OTP/凭据。
+人类理想操作是把一个固定版本的仓库/Release 地址交给代理。代理读取仓库根 [`AGENT_SETUP.md`](../AGENT_SETUP.md) 后自行完成检测、安装、配置和验证；只有外部服务尚不允许模型注册或授权时，才引导人类提供 inbox、执行一次 OTP 或在本机设置凭据。
 
-仓库后续应提供：
+当前入口：
 
 ```text
-AGENT_INSTALL.md
-install/manifest.json
-install/bootstrap.mjs
-install/doctor.mjs
-presets/contact/agentmail.json
-presets/contact/smtp-imap.json
-presets/contact/nylas.json
+AGENT_SETUP.md
+apps/trade-inboxd/examples/agentmail.json
+apps/trade-inboxd/src/cli.ts                 # doctor / run / list / ack
+integrations/deepseek-harness/install-presets.sh
+integrations/deepseek-harness/presets/{trade-buyer,trade-seller}/
 ```
 
-`bootstrap.mjs`：
+模型接入流程：
 
 1. 检测 OS、Node 版本、运行时与服务管理器；
-2. 读取固定 release manifest，校验版本与文件哈希；
+2. 使用明确的 commit/tag；release manifest 和额外哈希固定留作发布阶段增强；
 3. 询问或自动识别 provider；
-4. 引导一次 AgentMail OTP/凭据授权，或读取已有 secret；
+4. 优先读取已有 secret；确实缺少时才引导一次 AgentMail 账号/凭据授权；
 5. 创建最小权限配置与本地数据目录；
 6. 安装并启动 `trade-inboxd`；
-7. 安装运行时桥接器，但不修改 DSH 插件源码；
-8. 调用 `doctor.mjs` 做真实收发、IDLE/WebSocket、断线恢复和权限检查；
+7. 安装对应运行时桥接器；DSH 参考实现直接使用本仓库 plugin/preset；
+8. 调用 `trade-inboxd doctor`，再做真实收发、WebSocket 与队列一致性检查；
 9. 输出短摘要与修复命令，不把大段安装日志交给模型。
 
-安装命令必须固定到 release/tag 并验证哈希，不能默认执行仓库 `main` 上随时变化的远程代码。
+生产安装应固定到 release/tag，不能默认长期跟随 `main`。一键脚本可以缩短机械步骤，但不是模型接入成立的前提。
 
 ### 7.1 Provider preset
 
@@ -362,7 +360,7 @@ presets/contact/nylas.json
 - 四个协议签名对象及其测试向量；
 - M5 的 SMTP 发信、IMAP 拉取、MIME 解析、安全落盘和幂等原则；
 - 索引站不替交易双方转发私信；
-- DSH 插件当前代码，本阶段不改；
+- DSH、Codex 或其他客户端不把供应商 SDK 写进协议层；
 - 支付、物流、保险、担保继续由交易参与方选择外部服务。
 
 ### 8.2 后续新增
@@ -374,9 +372,10 @@ presets/contact/nylas.json
 | `apps/trade-inboxd` | 常驻监听、存储、幂等、限流、唤醒 |
 | `adapters/contact-agentmail` | AgentMail REST + WebSocket |
 | `adapters/email.watch()` | 现有 M5 增加 IMAP IDLE 与补拉 |
-| `install/*` | 固定版本的一键安装与 doctor |
+| 模型接入说明 / release manifest | 模型自助接入；固定版本和哈希发布清单后续补充 |
 | runtime bridge contract | 规定 WakeTask 输入、工具名、结果和验收向量 |
-| Codex reference bridge | 本仓库维护的首个客户端参考实现 |
+| DSH contact bridge | 已完成的首个客户端参考实现 |
+| Codex reference bridge | 本仓库后续维护的第二参考实现 |
 
 建议不要把 AgentMail SDK 直接塞进任何客户端插件。邮件供应商逻辑属于 `trade-inboxd`/adapter；运行时桥接器只处理稳定的 WakeTask 和受控工具调用。
 
@@ -386,8 +385,8 @@ presets/contact/nylas.json
 |---|---|
 | 协议、schema、签名对象、测试向量 | 本仓库维护 |
 | `contact_refs`、ContactAdapter、`trade-inboxd` | 本仓库维护 |
-| Codex Skill / MCP / self-trigger bridge | **本仓库维护并提供参考验收** |
-| DSH plugin / preset / wake 接入 | 项目发起人在本地 DSH 调试环境维护和验证 |
+| DSH plugin / preset / pull bridge | **本仓库已有参考实现并维护** |
+| Codex Skill / MCP / self-trigger bridge | 本仓库后续维护并提供参考验收 |
 | TRAE、WorkBuddy/CodeBuddy 及其他客户端 | 各客户端维护者或社区依据 bridge contract 自行适配 |
 
 仓库对非 Codex 客户端的承诺止于：稳定 contract、可执行测试向量、示例 WakeTask 和兼容性说明；不承诺代替每个客户端维护专用插件。
@@ -410,7 +409,7 @@ Codex bridge 不拥有邮箱凭据，不直接维护长连接，也不自动读�
 
 - 合并本文档；
 - 确认 `contact_refs` 只描述公开信道；
-- 确认 DSH 插件本阶段不动。
+- 确认供应商适配器、`trade-inboxd` 与客户端 bridge 的职责边界。
 
 ### P1：确定性联系核心（首批已完成）
 
@@ -426,11 +425,11 @@ Codex bridge 不拥有邮箱凭据，不直接维护长连接，也不自动读�
 
 剩余 P2 工作是 API 补拉游标、原始邮件/附件隔离库、收件洪泛策略和最小权限黑盒测试；当前版本依赖 AgentMail 重连后的事件补发，并由本地确定性队列吸收重叠事件。
 
-### P3：标准退路与安装器
+### P3：标准退路与模型接入说明
 
 - M5 增加 IMAP IDLE `watch()`；
 - AgentMail 账户同时通过 `smtp-imap` preset 做兼容回归；
-- 完成 `bootstrap`、`doctor` 与固定 release manifest。
+- 维护模型可直接执行的接入说明、`doctor` 与固定 release manifest；一键脚本只是可选便利层。
 
 ### P4：第二供应商与自托管
 
@@ -441,7 +440,7 @@ Codex bridge 不拥有邮箱凭据，不直接维护长连接，也不自动读�
 ### P5：运行时接入
 
 - Codex：本仓库实现 Repo Skill + STDIO MCP + `codex exec` WakeTask bridge，并执行参考验收；
-- DSH：由项目发起人在本地真实调试环境接入和验证 WakeTask；
+- DSH：contact bridge 已完成会话内 pull 接入；非交互启动/恢复会话仍待验证；
 - 其他 runtime：由对应维护者依据同一 bridge contract 与测试向量自行实现。
 
 ---
@@ -493,7 +492,7 @@ Codex bridge 不拥有邮箱凭据，不直接维护长连接，也不自动读�
 - 每次新邮件自动注入模型的内容不超过一个 WakeTask；
 - 原始邮件只有在代理选择 `contact_message_get` 后才进入上下文；
 - AgentMail 原生路径与 SMTP/IMAP 标准路径都能完成同一交易；
-- 一条固定版本安装入口能在干净机器完成安装，除邮箱授权外无需人类编辑配置文件；
+- 模型只凭固定版本接入说明即可在干净机器完成安装、配置和验证；除邮箱授权等外部动作外，不把仓库内步骤转交给人类；
 - 泄露/误用单个代理凭据时，影响范围被限制在该 inbox 的读写。
 
 ---
@@ -530,6 +529,6 @@ Codex bridge 不拥有邮箱凭据，不直接维护长连接，也不自动读�
 | 公网 webhook/批量发信 | Resend |
 | 常驻确定性进程 | `trade-inboxd` |
 | 模型唤醒载荷 | 小型 WakeTask；不含正文/附件 |
-| DSH 支持责任 | 项目发起人本地适配与验证；本仓库不代维护 |
+| DSH 支持责任 | 本仓库已有 contact bridge 参考实现；非交互唤醒继续由 DSH 环境验证 |
 | Codex 支持责任 | 本仓库维护参考接入；联系运行时通过 Go/no-go 后实施 |
 | 其他客户端 | 依据 bridge contract 与测试向量自行适配 |

@@ -9,6 +9,9 @@
 7. 自动反垃圾、统一 SEO、自动物流下单、高频交易优化。
 8. 一条评价一个 torrent 的传播方式（已用批次 Feed 替代）。
 9. 与 x402 / AP2 / ACP 等 agent 支付协议的桥接（settlement.provider_ref）。
+10. **后付结算状态机**：货到付款、账期、分阶段付款/里程碑付款；V0.2 当前只支持 `PAYMENT_CONFIRMED → FULFILLING` 的付款后履约顺序，禁止用虚假付款事件绕过。
+11. **模型自主开户适配器**：当邮件或支付服务商提供模型可完成的注册、授权和凭据轮换 API 时，把人工 provision 步骤替换为 provider adapter；协议层不绑定供应商。
+12. 固定版本的模型接入清单与 release manifest；一键脚本可作为便利工具，但不是接入前提。
 
 ## 取舍登记（M1 identity）
 
@@ -93,11 +96,9 @@
 - **BT 下载在部分环境可能偶发挂起**：本环境未复现、根因未定位，已用超时+镜像降级兜底（M11 子代理排查有界结论）。
 - **M4 DHT 真实网络验收在本环境失败**（2026-08-23）：卖方播种+宣告流程走完，买方仅 magnet 120s 超时；本环境 github.com 不可达，判断为公共 DHT bootstrap 被网络策略拦截所致，非实现问题。**发布前必须在开放网络复跑 `packages/bt-catalog/scripts/dht-acceptance.mjs`**。
 
-## 取舍登记（M10 离线预备）
+## 取舍登记（M10 早期离线预备，已由完成实现取代）
 
-- preset/skill/INSPECTION.md 基于打包安装目录的真实样例离线起草；cordis 插件宿主代码零行——动态工具注册的确切接口属"运行时待探测"（INSPECTION.md 第二部分 14 条），需在运行中的 DSH（创造模式会话）用 cordis_inspect_list/query 逐项验证后填写。
-- agent.cordis.yml 只含逐字取自打包样例的已验证行；交易工具挂载留 TODO(runtime) 占位。
-- M10 会话内验收（搜索→议价→双签）必须在真实 DSH 环境执行，不进 CI。
+- 以下三条只记录 M10 开始时的历史状态，不再描述当前实现：preset/skill/INSPECTION.md 曾先离线起草，Cordis 接口随后已在真实 DSH 中探测；`agent.cordis.yml` 的交易工具挂载已定稿；会话内往返和 preset 挂载均已验证。当前状态见后续“DSH 集成完成”与“contact bridge”登记。
 
 ## 取舍登记（M10 contact bridge，2026-08-24）
 

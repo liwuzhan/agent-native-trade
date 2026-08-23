@@ -24,4 +24,4 @@ description: 卖方/执行方确认收款：发 PAYMENT_CONFIRMED（→ PAYMENT_
 
 ## 红线
 
-券核销/任务状态由适配器校验（test-voucher 券不存在或已用、manual 任务未 DONE 均拒绝）；确认决策由调用方模型做出，无人工环节。
+券核销/任务状态由适配器校验（test-voucher 券不存在或已用、manual 任务未 DONE 均拒绝）。签名事件由模型发出，但 `manual-settlement` 的真实付款必须已经由人类或外部服务完成并回传凭证；不得把“同意到付”当成“已经收款”。

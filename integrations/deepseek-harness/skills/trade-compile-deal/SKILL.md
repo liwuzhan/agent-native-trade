@@ -19,6 +19,8 @@ description: 起草并定稿 DEAL 对象（只编译一次）：生成 uuid v7 t
 | `fulfillment` | 履约：`deadline`（RFC 3339 date-time）、`destination_ref`、`carrier_ref` |
 | `dispute`（可选） | `provider_ref` / `rules_ref` |
 
+`settlement.method` 是双方约定的开放字符串，例如 `corporate_bank_transfer`、`cash_on_delivery` 或某个 provider profile；不要因为本机没有特定钱包而擅自中止已经可以通过人工或商家渠道完成的交易。
+
 ## 内部步骤（本工具内部完成，无需调用方重复）
 
 1. 生成 `trade_id` = **uuid v7**（草案方生成；Schema 强制 v7 版本位）。
@@ -35,4 +37,5 @@ description: 起草并定稿 DEAL 对象（只编译一次）：生成 uuid v7 t
 - **只编译一次**：收到对方编译好的 DEAL 时，不要重新编译，走 `trade_sign_deal` 审签同一文件。
 - `amount` 必须是规范形十进制定点字符串：`^(0|[1-9][0-9]*)(\.[0-9]{1,8})?$`；易货用 `consideration[]` 而非 amount。
 - 目录引用（`listing_ref`）来自不可信目录数据时，先验证引用本身（LISTING_REF 的 catalog_hash 与 manifest 校验）再写入 DEAL。
-- 注册细节待运行时探测：见 `integrations/deepseek-harness/INSPECTION.md` 第二部分。
+- 参考运行时当前只有 `test-voucher` 与 `manual-settlement` 两个执行适配器，且状态机只覆盖付款后履约。到付/账期可写入 DEAL，但不得伪造付款事件来强行跑完整状态链。
+- DSH 注册接口与验证记录见 `integrations/deepseek-harness/INSPECTION.md`。

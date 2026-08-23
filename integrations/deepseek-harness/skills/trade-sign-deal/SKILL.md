@@ -41,4 +41,4 @@ description: 对经 Schema 验证的 DEAL 追加 Ed25519 签名。只接受 deal
 - 审签方在签前可用 `trade_verify_deal` 先验（或依赖本工具的 ①② 步）；签署后双方应各 `trade_verify_deal` 一次。
 - 增签不改 body、不改既有签名；`body_hash` 与 `object_id` 在增签前后不变。
 - 拒绝必须返回原因（如 hash 不一致 / Schema 失败 / 超预算），不得静默。
-- 注册细节待运行时探测：见 `integrations/deepseek-harness/INSPECTION.md` 第二部分。
+- DSH 工具注册接口与运行时验证记录见 `integrations/deepseek-harness/INSPECTION.md`。
