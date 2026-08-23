@@ -15,12 +15,9 @@
  * in-memory ring, so the local-store package stays byte-for-byte unchanged and
  * its 19 acceptance tests keep passing.
  *
- * `.data/peers/*.pub` (the read-only public-key ring, M10 cross-machine
- * signing) is deliberately not reloaded here: the M3 surface has no "save
- * peer" method, and the indexer's announce `resolveKey` only ever consults
- * `.data/keys/` (see `createIndexerRole`), so a peer-only signer is rejected
- * up front as `fail:unknown_signer` before it could reach `putObject`. Peer
- * hot reload is therefore not observable on this contract.
+ * `.data/peers/*.pub` is also reloaded. Those files contain public material
+ * only; a conflicting key for an existing agent id is rejected by the store's
+ * TOFU rule.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -47,5 +44,21 @@ export function reloadTrustRing(ctx: StationContext): void {
       // derives the public key and throws): skip this entry rather than
       // failing the request.
     }
+  }
+
+  const peersDir = join(ctx.dataDir, '.data', 'peers');
+  try {
+    for (const name of readdirSync(peersDir)) {
+      if (!name.endsWith('.pub')) continue;
+      try {
+        const agentId = decodeURIComponent(name.slice(0, -'.pub'.length));
+        const publicKey = readFileSync(join(peersDir, name), 'utf8').trim();
+        ctx.store.savePeerKey(agentId, publicKey);
+      } catch {
+        // Ignore malformed/unreadable/conflicting peer entries.
+      }
+    }
+  } catch {
+    // no peers directory yet
   }
 }

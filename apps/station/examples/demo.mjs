@@ -21,6 +21,7 @@
  */
 
 import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -65,9 +66,6 @@ const BUYER = 'agent_buyer';
 const SELLER = 'agent_seller';
 const INTEGRATOR = 'agent_integrator';
 const INDEXER = 'agent_indexer';
-// 演示虚构种子（非真实秘密；整合商/索引站站点身份，固定以便复现）。
-const INTEGRATOR_SEED = 'SYJNK8ViLRxRrc_wqiBT4QgobUFWTk4iKIJkLy4s8uQ';
-const INDEXER_SEED = 'CRvDtLWuQAUUATZeIWYI0ICvSsb_rgplRz8x5v2znS8';
 
 // 固定 trade_id（uuid v7，规范 §4），复现用。
 const TRADE_ID = '018e2c21-0000-7000-8000-00000000000f';
@@ -141,11 +139,11 @@ function writeSeedFile(relPath, seedBase64url) {
   return p;
 }
 
-/** 预置信任环：向某角色的 .data/keys/<agentId>.key 写入（私钥）种子。 */
-function writeKey(dataDir, agentId, seedBase64url) {
-  const keysDir = join(dataDir, '.data', 'keys');
-  mkdirSync(keysDir, { recursive: true });
-  writeFileSync(join(keysDir, `${encodeURIComponent(agentId)}.key`), seedBase64url + '\n', { mode: 0o600 });
+/** 预置信任环：只写公开材料，绝不把另一主体的私钥复制进本站。 */
+function writePeer(dataDir, agentId, seedBase64url) {
+  const peersDir = join(dataDir, '.data', 'peers');
+  mkdirSync(peersDir, { recursive: true });
+  writeFileSync(join(peersDir, `${encodeURIComponent(agentId)}.pub`), pubOf(seedBase64url) + '\n', { mode: 0o600 });
 }
 
 /** 派生公钥（与 local-store 信任环同源：公钥来自种子）。 */
@@ -256,16 +254,19 @@ async function main() {
   log('init', 'S5 三角色互演演示');
   for (const d of [RUN, ART, EXPORT_DIR, IDENTITY_DIR]) mkdirSync(d, { recursive: true });
 
-  // 1. 身份：buyer/seller 种子取自协议权威测试向量；integrator/indexer 为演示固定种子。
+  // 1. 身份：buyer/seller 用协议权威测试向量；站点身份每次运行重新生成，
+  //    只写入 gitignored 的 runlog，避免在文档或源码中分发可复用私钥。
   const vectors = JSON.parse(readFileSync(VECTORS_PATH, 'utf8'));
   const buyerSeed = vectors.identities.agent_buyer.seed;
   const sellerSeed = vectors.identities.agent_seller.seed;
+  const integratorSeed = randomBytes(32).toString('base64url');
+  const indexerSeed = randomBytes(32).toString('base64url');
 
   const KEYS = new Map([
     [BUYER, buyerSeed],
     [SELLER, sellerSeed],
-    [INTEGRATOR, INTEGRATOR_SEED],
-    [INDEXER, INDEXER_SEED],
+    [INTEGRATOR, integratorSeed],
+    [INDEXER, indexerSeed],
   ]);
   const resolveKey = (signer) => {
     const k = KEYS.get(signer);
@@ -279,22 +280,23 @@ async function main() {
     indexer: INDEXER,
     buyer_public_key: pubOf(buyerSeed),
     seller_public_key: pubOf(sellerSeed),
-    integrator_public_key: pubOf(INTEGRATOR_SEED),
-    indexer_public_key: pubOf(INDEXER_SEED),
+    integrator_public_key: pubOf(integratorSeed),
+    indexer_public_key: pubOf(indexerSeed),
   };
 
   // 2. 站点身份种子文件（32 字节原始种子，匹配 agent_id）。
-  writeSeedFile('runlog/identity/indexer.seed', INDEXER_SEED);
+  writeSeedFile('runlog/identity/indexer.seed', indexerSeed);
   writeSeedFile('runlog/identity/publisher.seed', sellerSeed);
-  writeSeedFile('runlog/identity/integrator.seed', INTEGRATOR_SEED);
+  writeSeedFile('runlog/identity/integrator.seed', integratorSeed);
 
   // 3. 信任环预置（跨进程验签需要）：
   //    - indexer 需验发布站/整合商通告、回执与 DEAL bundle → 存 buyer/seller/integrator 种子。
   //    - integrator 需验发布站 member LISTING_REF → 存 seller 种子。
-  writeKey(join(RUN, 'indexer'), SELLER, sellerSeed);
-  writeKey(join(RUN, 'indexer'), BUYER, buyerSeed);
-  writeKey(join(RUN, 'indexer'), INTEGRATOR, INTEGRATOR_SEED);
-  writeKey(join(RUN, 'integrator'), SELLER, sellerSeed);
+  // publisher / integrator 会在通告中自带公钥并由 indexer TOFU 收录；
+  // buyer 没有商品通告，所以为回执验签预置其公钥。integrator 抓取成员
+  // LISTING_REF 时同样只需 publisher 的公钥。
+  writePeer(join(RUN, 'indexer'), BUYER, buyerSeed);
+  writePeer(join(RUN, 'integrator'), SELLER, sellerSeed);
 
   // 4. 发布站虚构目录（家电维修，tags: 朝阳+家电维修）。
   const publisherCatalogDir = join(RUN, 'publisher-catalog');

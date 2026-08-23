@@ -42,3 +42,5 @@ export { loadOrCreateSeed } from './identity.js';
 export type { IdentityResult } from './identity.js';
 export { createLogger } from './logger.js';
 export type { Logger } from './logger.js';
+export { buildListingAnnouncement, isListingAnnouncement, verifyCatalogCard } from './announcement.js';
+export type { CatalogCard, ListingAnnouncement } from './announcement.js';

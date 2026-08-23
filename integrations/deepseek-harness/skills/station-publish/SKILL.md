@@ -1,13 +1,13 @@
 ---
 name: station-publish
-description: 用 station 的 publisher 角色发布一个商品目录并通告给 indexer，使其可被标签检索。步骤：准备目录 JSON（metadata.tags 写在 catalog.json）→ 写最小 publisher.yaml → 起 publisher → 验证 GET /listing-ref → 通告 POST /announce/listing-ref → 镜像 PUT /catalogs/:hash → 在 indexer 用 GET /catalogs?tag=… 验证命中。含 curl 示例与常见错误（端口占用、data_dir 语义、tags 位置、验签失败排查）。
+description: 用 station 的 publisher 角色发布商品目录并自动通告 indexer。通告携带公钥、签名 LISTING_REF 与轻量 catalog card；无需复制私钥或镜像完整目录即可按标签检索。完整 PUT 镜像仅是可选缓存。
 ---
 
 # station-publish
 
 ## 用途
 
-用 station 的 publisher 角色「发布一个商品」，最终让 indexer 能按标签检索到它。发布站只负责：读目录 → 计算 manifest/catalog_hash → 签 LISTING_REF → 通告 LISTING_REF。要让目录**可被标签检索**，还必须把目录存档镜像到 indexer（`PUT /catalogs/:hash`，indexer 从中提取 `metadata.tags`）。
+用 station 的 publisher 角色「发布一个商品」，最终让 indexer 能按标签检索到它。发布站会在一次通告里发送：自身公钥、签名 LISTING_REF、manifest 和哈希保护的 `catalog.json`。indexer 验签后按首次见到的公钥建立身份映射（TOFU），不接触发布者私钥，也不需要保存完整目录。
 
 ## 前置
 
@@ -20,7 +20,7 @@ description: 用 station 的 publisher 角色发布一个商品目录并通告�
 
 2. 一个**运行中的 indexer**，记其基址为 `INDEXER`（示例 `http://127.0.0.1:8787`）。可用 `curl -s $INDEXER/healthz` 确认，期望 `{"ok":true,"role":"indexer","agentId":"..."}`。没有现成 indexer 时见文末「附：快速起一个 indexer」。
 
-3. indexer 的信任环里必须已含本发布站身份（否则通告被拒，见「常见错误 · 验签失败排查」）。
+3. 不需要向 indexer 预置发布站种子。首次通告会自动引导公钥；同一 `agent_id` 后续若换成不同公钥会被拒绝。
 
 ## 步骤
 
@@ -44,7 +44,7 @@ cat > my-catalog/catalog.json <<'EOF'
 EOF
 ```
 
-> 关键：tags 只允许出现在 `catalog.json` 的 `metadata.tags`，**不能**放进 LISTING_REF（其 body schema `additionalProperties: false`，塞 tags 会破坏签名）。indexer 是从镜像存档里的 `catalog.json` 提取 tags 的。
+> 关键：tags 只允许出现在 `catalog.json` 的 `metadata.tags`，**不能**放进 LISTING_REF。indexer 从通告中的轻量 catalog card 提取 tags，并用 manifest + `catalog_hash` 校验。
 
 ### 2. 写最小 publisher.yaml
 
@@ -62,6 +62,8 @@ publisher:
   announce_to: ["http://127.0.0.1:8787"]  # 启动即通告此 indexer（基址）
   watch: false
   dht: false                            # 关 DHT，避免挂起
+  # 对外部署时填写模型可访问的地址；不要把 0.0.0.0/127.0.0.1 当公网地址广播
+  # public_base_url: "https://catalog.example.com"
 EOF
 ```
 
@@ -71,7 +73,7 @@ EOF
 node dist/cli.js publisher --config my-publisher.yaml
 ```
 
-启动时发布站会：读目录 → 算 manifest + `catalog_hash` → 本地播种（生成 magnet）→ 签 LISTING_REF → 存事实 → 按 `announce_to` 自动通告 LISTING_REF。用 `Ctrl-C`（SIGINT）优雅退出。
+启动时发布站会：读目录 → 算 manifest + `catalog_hash` → 本地播种 → 签 LISTING_REF → 存事实 → 按 `announce_to` 自动通告轻量目录卡片。用 `Ctrl-C`（SIGINT）优雅退出。
 
 ### 4. 验证 GET /healthz 与 GET /listing-ref
 
@@ -94,20 +96,16 @@ echo "$CATALOG_HASH"
 
 ### 5. 通告到 indexer
 
-发布站启动时已按 `announce_to` 自动通告；若想确认或重发（例如 indexer 之前未就绪），手动通告：
+发布站启动时已按 `announce_to` 自动通告；若 indexer 当时未就绪，可让 publisher 重发完整通告：
 
 ```bash
-curl -s -X POST http://127.0.0.1:8787/announce/listing-ref \
-  -H 'content-type: application/json' \
-  --data-binary @listing-ref.json
-# 成功 200：{"status":"accepted","object_id":"sha256:..."}
-# 验签/类型失败 400：{"error":"verification failed (fail:...)","verify_result":"fail:..."}
-# 同 object_id 异内容冲突 409：{"error":"conflict","object_id":"..."}
+curl -s -X POST http://127.0.0.1:8788/announce
+# 200：{"status":"announced","results":[...]}
 ```
 
-### 6. 镜像目录到 indexer（否则检索不到）
+### 6. 可选：让 indexer 缓存完整目录
 
-通告只登记 LISTING_REF；**标签检索还需要把目录存档镜像给 indexer**。从发布站取存档，再 PUT 给 indexer：
+普通发布和检索不需要这一步。只有 indexer 自愿承担镜像流量、希望发布站离线后仍能直接提供完整目录时，才从发布站取存档并 PUT：
 
 ```bash
 CATALOG_HASH=$(node -e "console.log(JSON.parse(require('fs').readFileSync('listing-ref.json','utf8')).body.catalog_hash)")
@@ -119,7 +117,7 @@ curl -s -X PUT "http://127.0.0.1:8787/catalogs/$CATALOG_HASH" \
 # 成功 201：{"status":"stored","catalog_hash":"sha256:..."}
 ```
 
-存档是 `{manifest:{files:[{path,sha256}]}, files:[{path, content(base64)}]}`；indexer 在 `storeCatalog` 里先按 manifest 校验每个文件，再从 `catalog.json`（`catalog.json` 或 `<目录名>/catalog.json`）提取 `metadata.tags`。
+存档是 `{manifest:{files:[{path,sha256}]}, files:[{path, content(base64)}]}`。这只是可选缓存，不是索引收录前置条件。
 
 ### 7. 在 indexer 用标签检索验证
 
@@ -142,8 +140,8 @@ curl -s 'http://127.0.0.1:8787/catalogs?tag=示例&tag=标签'
 1. `GET /healthz` → 200 且 `role==publisher`、`agentId==my-publisher`。
 2. `GET /listing-ref` → 200，返回信封含 `body.catalog_hash` 与 `body.publisher==my-publisher`。
 3. `POST /announce/listing-ref`（或启动自动通告）→ 200 `{status:"accepted",object_id}`。
-4. `PUT /catalogs/:hash` → 201 `{status:"stored"}`。
-5. `GET /catalogs?tag=示例&tag=标签` → `catalogs[]` 含 `catalog_hash` 与 `publisher==my-publisher`。
+4. `GET /catalogs?tag=示例&tag=标签` → `catalogs[]` 含 `catalog_hash`、`publisher` 与 `distribution_refs`。
+5. `GET /catalogs/:hash/card` → 200；完整目录未镜像时 `GET /catalogs/:hash` 可以是 404。
 
 ## 常见错误
 
@@ -152,22 +150,9 @@ curl -s 'http://127.0.0.1:8787/catalogs?tag=示例&tag=标签'
 - **`publisher.catalog_dir: missing catalog.json at the directory root`**：`catalog_dir` 根缺 `catalog.json`，或它不是合法 JSON。
 - **`catalog.json: catalog_id must be a non-empty string` / `item_id ...`**：两个字段必填非空字符串。
 - **tags 位置错**：tags 必须在 `catalog.json` 的 `metadata.tags`（`string[]`）。放在 LISTING_REF body 或顶层都会失败/不被识别。
-- **验签失败排查**：`POST /announce/listing-ref` 返回 `400 {"verify_result":"fail:unknown_signer"}` 表示 indexer 信任环没有通告者（`publisher` 字段，即 publisher 的 `agent_id`）的种子。indexer 角色只从 `<indexer data_dir>/.data/keys/<agentId>.key`（种子文件，base64url + 换行，0600）解析 signer。修法：
-
-  ```bash
-  # 1) 导出 publisher 的 32 字节种子为 base64url
-  PUB_SEED=$(node -e "console.log(Buffer.from(require('fs').readFileSync('.publisher.seed')).toString('base64url'))")
-  # 2) 写入 indexer 的信任环（agentId 必须与 publisher 的 agent_id 完全一致）
-  mkdir -p "<INDEXER_DATA_DIR>/.data/keys"
-  printf '%s\n' "$PUB_SEED" > "<INDEXER_DATA_DIR>/.data/keys/my-publisher.key"
-  chmod 600 "<INDEXER_DATA_DIR>/.data/keys/my-publisher.key"
-  # 3) 重新通告一次（幂等）
-  curl -s -X POST http://127.0.0.1:8787/announce/listing-ref \
-    -H 'content-type: application/json' --data-binary @listing-ref.json
-  ```
-
-  其它 `verify_result` 取值（与 CONTRACT.md 一致）：`fail:body_hash_mismatch` / `fail:object_id_mismatch` / `fail:schema_invalid` / `fail:signature_invalid` / `fail:protocol_version`——多因手改了信封内容破坏签名，重新从 `GET /listing-ref` 取原始信封即可。
-- **标签检索查不到**：只有 `PUT /catalogs/:hash` 镜像过、且其 `catalog.json` 带 `metadata.tags` 的目录才进黄页；**先镜像再检索**。若结果里只有 `{catalog_hash,tags}` 而没有 `publisher/object_id`，说明只镜像未通告——补做第 5 步。
+- **`identity_conflict`**：同一个 `agent_id` 已经通过 TOFU 绑定了另一个公钥。不要复制或上传私钥；确认 agent_id 是否重用，必要时由索引站运营者检查 `.data/peers/<agentId>.pub`。
+- **裸 LISTING_REF 返回 `fail:unknown_signer`**：兼容接口仍接受裸信封，但陌生身份无法仅靠裸信封引导。请调用 publisher 的 `POST /announce`，发送包含公开身份和 catalog card 的完整通告。
+- **标签检索查不到**：确认 publisher 的自动通告成功，且 `catalog.json` 带 `metadata.tags`。完整目录 PUT 不再是检索前置条件。
 
 ## 附：快速起一个 indexer
 
@@ -187,7 +172,4 @@ EOF
 node dist/cli.js indexer --config my-indexer.yaml
 ```
 
-然后**先**把发布站种子写入 indexer 信任环（见上「验签失败排查」第 1-2 步，`<INDEXER_DATA_DIR>` 即 `.`），再起 publisher。
-
-> 演示/测试身份可用 `protocol/test-vectors/vectors.json` 的 `agent_buyer` / `agent_seller` 种子——**这只是演示身份，禁止用于生产**。例如用 `agent_seller`（种子 `KonHOvu2k3_LGwqohnSusfSlU7hyO7MrSJFjP_bRqYE`）作发布站：把 `agent_id` 改为 `agent_seller`，并用
-> `node -e "require('fs').writeFileSync('.publisher.seed', Buffer.from('KonHOvu2k3_LGwqohnSusfSlU7hyO7MrSJFjP_bRqYE','base64url'))"` 写种子文件；indexer 信任环键名用 `agent_seller.key`。
+然后直接起 publisher；首次启动会在 `identity_seed_file` 指定的位置生成该站自己的全新身份，首次完整通告会自动引导公钥。不要把 `protocol/test-vectors/` 中的公开身份用于跨机器试运行，也不要把发布站的种子复制给 indexer。

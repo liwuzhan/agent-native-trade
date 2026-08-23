@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import Database from 'better-sqlite3';
+import { publicKeyFromSeed } from '@agent-trade/identity';
 import { buildObject, objectId } from '@agent-trade/signed-files';
 
 import { openStore } from '../src/index.js';
@@ -186,7 +187,18 @@ describe('M3 acceptance 3: event log is append-only', () => {
 
   it('exposes exactly the card surface: no update/delete entry points', () => {
     expect(Object.keys(store).sort()).toEqual(
-      ['applyEvent', 'close', 'getKey', 'getObject', 'putObject', 'rebuildIndex', 'saveKey', 'stateOf'],
+      [
+        'applyEvent',
+        'close',
+        'getKey',
+        'getObject',
+        'getPublicKey',
+        'putObject',
+        'rebuildIndex',
+        'saveKey',
+        'savePeerKey',
+        'stateOf',
+      ],
     );
   });
 });
@@ -302,5 +314,20 @@ describe('M3 acceptance 5: keys/ directory and key file permissions', () => {
     // still verifies: public key was re-derived from the saved seed on open
     expect(store.applyEvent(t, sellerEvent(t, 'PAYMENT_REQUESTED', 1))).toBe('PAYMENT_PENDING');
     expect(store.getKey('agent_seller')).toBe(vectors.identities.agent_seller.seed);
+  });
+
+  it('peer public keys persist without copying a secret seed (TOFU)', () => {
+    const publicKey = publicKeyFromSeed(vectors.identities.agent_seller.seed);
+    store.savePeerKey('agent_seller', publicKey);
+    expect(store.getKey('agent_seller')).toBeUndefined();
+    expect(store.getPublicKey('agent_seller')).toBe(publicKey);
+    expect(store.putObject(vectorListing.file)).toBe(vectorListing.object_id);
+
+    store.close();
+    store = openStore(dir);
+    expect(store.getPublicKey('agent_seller')).toBe(publicKey);
+    expect(() => store.savePeerKey('agent_seller', publicKeyFromSeed(vectors.identities.agent_buyer.seed))).toThrow(
+      /key conflict/,
+    );
   });
 });

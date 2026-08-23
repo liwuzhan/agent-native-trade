@@ -37,6 +37,8 @@ export interface IntegratorConfig {
   dht: boolean;
   announce_timeout_ms: number;
   announce_retries: number;
+  /** Externally reachable base URL advertised in distribution_refs. */
+  public_base_url: string | null;
 }
 
 /**

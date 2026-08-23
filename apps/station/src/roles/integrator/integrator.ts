@@ -19,6 +19,7 @@ import { catalogHash, download, seed } from '@agent-trade/bt-catalog';
 import type { SeedResult } from '@agent-trade/bt-catalog';
 import { addSignature, buildObject, serialize } from '@agent-trade/signed-files';
 
+import { buildListingAnnouncement } from '../../announcement.js';
 import type { StationContext } from '../../types.js';
 import { announceListingRef } from '../publisher/announce.js';
 import { buildTopicCatalog } from './catalog.js';
@@ -55,6 +56,7 @@ export class Integrator {
   }
 
   private urlFor(port: number): string {
+    if (this.config.public_base_url !== null) return this.config.public_base_url;
     const host = this.ctx.config.http.host === '0.0.0.0' || this.ctx.config.http.host === '::'
       ? '127.0.0.1'
       : this.ctx.config.http.host;
@@ -209,7 +211,13 @@ export class Integrator {
     if (!this.result) return;
     if (this.config.announce_to.length === 0) return;
     try {
-      await announceListingRef(this.result.listingRef, this.config.announce_to, {
+      const announcement = buildListingAnnouncement(
+        this.ctx.agentId,
+        this.ctx.publicKey,
+        this.result.listingRef,
+        this.result.archive,
+      );
+      await announceListingRef(announcement, this.config.announce_to, {
         timeoutMs: this.config.announce_timeout_ms,
         retries: this.config.announce_retries,
         log: this.ctx.logger,

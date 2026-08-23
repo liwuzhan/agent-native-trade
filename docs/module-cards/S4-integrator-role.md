@@ -22,7 +22,7 @@ station integrator --config integrator.yaml
 1. 抓取/读取成员 LISTING_REF，逐一 `verifyFile` 验签，验签失败剔除并日志；
 2. 按 theme+tags 合成专题目录（含成员引用、摘要、标签）；保持 canonical manifest 规则；
 3. 签自己的 LISTING_REF；提供 HTTP 目录；可选 reseed 成员目录（兼任存档）；
-4. 向 `announce_to` 通告专题目录；成员目录变更后允许 refresh 重签（新 object_id）。
+4. 向 `announce_to` 通告公开身份 + 专题 LISTING_REF + 轻量 catalog card；成员目录变更后允许 refresh 重签（新 object_id）。
 
 依赖：S1、M1/M2/M4；dev：vitest。
 

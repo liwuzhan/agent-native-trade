@@ -53,6 +53,10 @@ export interface Store {
   saveKey(agentId: string, secretKey: string): void;
   /** Read a previously saved secret key; undefined when absent. */
   getKey(agentId: string): string | undefined;
+  /** Persist a peer public key under peers/ and add it to the trust ring (TOFU; conflicting keys are rejected). */
+  savePeerKey(agentId: string, publicKey: string): void;
+  /** Resolve a trusted public key from either a local secret key or peers/. */
+  getPublicKey(agentId: string): string | undefined;
   /** Verify the event signature, apply the state machine, append to the event log. Throws on invalid signature or transition. */
   applyEvent(tradeId: string, event: SignedFile): TradeState;
   /** Current state of a trade; undefined when no event was ever applied. */
@@ -106,6 +110,10 @@ function readFact(objectsDir: string, id: string): SignedFile | undefined {
 
 function keyFileName(agentId: string): string {
   return encodeURIComponent(agentId) + '.key';
+}
+
+function peerFileName(agentId: string): string {
+  return encodeURIComponent(agentId) + '.pub';
 }
 
 function loadKeyRing(keysDir: string, keyRing: Map<string, string>): void {
@@ -163,11 +171,14 @@ export function openStore(dir: string): Store {
   const root = join(dir, DATA_DIR);
   const objectsDir = join(root, OBJECTS_REL);
   const keysDir = join(root, KEYS_REL);
+  const peersDir = join(root, PEERS_REL);
   const indexPath = join(root, INDEX_REL);
 
   mkdirSync(objectsDir, { recursive: true });
   mkdirSync(keysDir, { recursive: true, mode: 0o700 });
+  mkdirSync(peersDir, { recursive: true, mode: 0o700 });
   chmodSync(keysDir, 0o700); // exact mode regardless of umask
+  chmodSync(peersDir, 0o700);
 
   // Trust ring: public keys derived from the saved secret keys, plus read-only
   // public-key imports under .data/peers/ (M10 cross-machine signing). verifyFile
@@ -175,7 +186,7 @@ export function openStore(dir: string): Store {
   // via saveKey, exactly as the module card prescribes).
   const keyRing = new Map<string, string>();
   loadKeyRing(keysDir, keyRing);
-  loadPeerRing(join(root, PEERS_REL), keyRing);
+  loadPeerRing(peersDir, keyRing);
   const resolveKey = (signer: string): string | undefined => keyRing.get(signer);
 
   let db = openDb(indexPath);
@@ -281,16 +292,42 @@ export function openStore(dir: string): Store {
     },
 
     saveKey(agentId: string, secretKey: string): void {
+      const publicKey = publicKeyFromSeed(secretKey);
+      const trusted = keyRing.get(agentId);
+      if (trusted !== undefined && trusted !== publicKey) {
+        throw new Error(`saveKey: key conflict for ${JSON.stringify(agentId)}`);
+      }
       const path = join(keysDir, keyFileName(agentId));
       writeFileSync(path, secretKey + '\n', { mode: 0o600 });
       chmodSync(path, 0o600); // exact mode regardless of umask
-      keyRing.set(agentId, publicKeyFromSeed(secretKey));
+      keyRing.set(agentId, publicKey);
     },
 
     getKey(agentId: string): string | undefined {
       const path = join(keysDir, keyFileName(agentId));
       if (!existsSync(path)) return undefined;
       return readFileSync(path, 'utf8').trim();
+    },
+
+    savePeerKey(agentId: string, publicKey: string): void {
+      if (agentId.length === 0) {
+        throw new Error('savePeerKey: agentId must be a non-empty string');
+      }
+      if (!PUBKEY_RE.test(publicKey)) {
+        throw new Error('savePeerKey: publicKey must be a 43-character base64url Ed25519 key');
+      }
+      const trusted = keyRing.get(agentId);
+      if (trusted !== undefined && trusted !== publicKey) {
+        throw new Error(`savePeerKey: key conflict for ${JSON.stringify(agentId)}`);
+      }
+      const path = join(peersDir, peerFileName(agentId));
+      writeFileSync(path, publicKey + '\n', { mode: 0o600 });
+      chmodSync(path, 0o600);
+      keyRing.set(agentId, publicKey);
+    },
+
+    getPublicKey(agentId: string): string | undefined {
+      return keyRing.get(agentId);
     },
 
     applyEvent(tradeId: string, event: SignedFile): TradeState {

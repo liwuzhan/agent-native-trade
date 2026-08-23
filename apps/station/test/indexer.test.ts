@@ -409,4 +409,85 @@ describe('indexer role (S2)', () => {
     const body = (await res.json()) as { error: string; verify_result: string };
     expect(body.verify_result).toBe('fail:signature_invalid');
   });
+
+  it('acceptance 7: a compact announcement bootstraps a public key and is searchable without a full mirror', async () => {
+    const { dir, ctx } = await buildCtx();
+    attachWeights(dir, ctx, DEFAULT_WEIGHTS);
+    const handle = await startIndexer(ctx);
+    const base = `http://127.0.0.1:${handle.port}`;
+
+    const newcomer = generateIdentity();
+    const archive = makeCatalogArchive(['浦东', '紧固件']);
+    const archiveBody = JSON.parse(archive.rawBody) as {
+      manifest: Manifest;
+      files: { path: string; content: string }[];
+    };
+    const catalogJson = archiveBody.files.find((file) => file.path.endsWith('/catalog.json'))!;
+    const ref = makeListingRef({
+      publisher: 'agent_new',
+      secretKey: newcomer.secretKey,
+      catalogId: 'catalog-new',
+      catalogHash: archive.hash,
+      itemId: 'item-new',
+    });
+    const announcement = {
+      identity: { agent_id: 'agent_new', public_key: newcomer.publicKey },
+      listing_ref: ref,
+      catalog: { manifest: archiveBody.manifest, catalog_json: catalogJson },
+    };
+
+    const accepted = await fetch(`${base}/announce/listing-ref`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(announcement),
+    });
+    expect(accepted.status).toBe(200);
+    expect(ctx.store.getKey('agent_new')).toBeUndefined();
+    expect(ctx.store.getPublicKey('agent_new')).toBe(newcomer.publicKey);
+
+    const search = await fetch(`${base}/catalogs?tag=${encodeURIComponent('紧固件')}`);
+    const searchBody = (await search.json()) as { catalogs: { catalog_hash: string }[] };
+    expect(searchBody.catalogs.map((entry) => entry.catalog_hash)).toContain(archive.hash);
+
+    const card = await fetch(`${base}/catalogs/${encodeURIComponent(archive.hash)}/card`);
+    expect(card.status).toBe(200);
+    const fullArchive = await fetch(`${base}/catalogs/${encodeURIComponent(archive.hash)}`);
+    expect(fullArchive.status).toBe(404);
+  });
+
+  it('acceptance 7b: a tampered catalog card is rejected before its public key is trusted', async () => {
+    const { dir, ctx } = await buildCtx();
+    attachWeights(dir, ctx, DEFAULT_WEIGHTS);
+    const handle = await startIndexer(ctx);
+    const base = `http://127.0.0.1:${handle.port}`;
+
+    const newcomer = generateIdentity();
+    const archive = makeCatalogArchive(['测试']);
+    const archiveBody = JSON.parse(archive.rawBody) as {
+      manifest: Manifest;
+      files: { path: string; content: string }[];
+    };
+    const catalogJson = archiveBody.files.find((file) => file.path.endsWith('/catalog.json'))!;
+    catalogJson.content = Buffer.from('{"metadata":{"tags":["篡改"]}}').toString('base64');
+    const ref = makeListingRef({
+      publisher: 'agent_tampered',
+      secretKey: newcomer.secretKey,
+      catalogId: 'catalog-tampered',
+      catalogHash: archive.hash,
+      itemId: 'item-tampered',
+    });
+
+    const res = await fetch(`${base}/announce/listing-ref`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        identity: { agent_id: 'agent_tampered', public_key: newcomer.publicKey },
+        listing_ref: ref,
+        catalog: { manifest: archiveBody.manifest, catalog_json: catalogJson },
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('invalid_catalog_card');
+    expect(ctx.store.getPublicKey('agent_tampered')).toBeUndefined();
+  });
 });

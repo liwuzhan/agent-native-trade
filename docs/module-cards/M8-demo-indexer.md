@@ -39,4 +39,6 @@ indexer query <snapshot> --subject <agentId>       # 本地离线查询（无需
 
 ## 边界
 
+- 信任环接受本站私钥派生公钥与 `.data/peers/<agentId>.pub`；跨主体只交换公钥，不复制种子。
+
 - 不做：SEO、垃圾过滤、用户体系、公网部署；在线抓取只做兜底且必须有超时/大小上限。

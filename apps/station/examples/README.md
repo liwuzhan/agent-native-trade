@@ -44,7 +44,7 @@ bash station-demo.sh
 ```text
 publisher 发布虚构"家电维修"服务目录（catalog.json 带 metadata.tags: ["朝阳","家电维修"]）
   → integrator 合成"北京家电维修专题"（member = 发布站 LISTING_REF）
-  → indexer 收录（POST /announce/listing-ref 通告 + PUT /catalogs/:hash 镜像）
+  → indexer 通过轻量通告收录（公钥 + LISTING_REF + catalog card；完整 PUT 镜像仅作演示缓存）
   → GET /catalogs?tag=朝阳&tag=家电维修 命中发布站目录
   → 买方从 indexer 镜像下载目录
   → 用 @agent-trade/signed-files + 测试向量身份签 DEAL + 双方回执
@@ -93,6 +93,7 @@ publisher:
   announce_to: []                       # 演示可不通告索引站
   watch: false
   dht: false                            # 关闭 DHT，避免挂起
+  # public_base_url: https://catalog.example.com  # 对外部署时填写
 ```
 
 先准备一份目录（`catalog.json` 至少要有 `catalog_id` / `item_id`）：
@@ -172,10 +173,9 @@ curl -s -X POST http://127.0.0.1:8789/refresh   # 手动重新合成
 **常见问题**：
 
 - `members` 指向某发布站的 `http://.../listing-ref` 却被拒绝（`member rejected` /
-  `verify: fail:unknown_signer`）—— 整合商信任环里没有该发布站公钥。两种修法：
-  1. 公钥导入（只读，推荐）：把发布站公钥写到
-     `.data/peers/<agentId>.pub`（43 字符 base64url 公钥一行）；
-  2. 私钥导入：把种子写到 `.data/keys/<agentId>.key`（种子 + 换行，0600）。
+  `verify: fail:unknown_signer`）—— 整合商需要先知道成员公钥。把发布站公钥写到
+  `.data/peers/<agentId>.pub`（43 字符 base64url 公钥一行）。不要导入对方私钥；
+  `.data/keys/` 只保存本站自己的身份种子。
 - `members` 留空也可启动（合成 0 成员的专题目录），只是没有聚合内容。
 
 ### 2.3 索引站 indexer
@@ -207,11 +207,11 @@ curl -s http://127.0.0.1:8787/healthz
 
 curl -s http://127.0.0.1:8787/                 # 只读状态页（HTML）
 
-# 通告一份 LISTING_REF（验签通过后收录）
+# 通告一份完整 transport announcement（公钥 + LISTING_REF + catalog card）
 curl -s -X POST http://127.0.0.1:8787/announce/listing-ref \
   -H 'content-type: application/json' --data-binary @some-listing-ref.json
 
-# 镜像一份目录存档包（PUT /catalogs/:hash，返回 201）
+# 可选：镜像一份完整目录存档包（PUT /catalogs/:hash，返回 201）
 curl -s -X PUT http://127.0.0.1:8787/catalogs/sha256:<64hex> \
   -H 'content-type: application/json' --data-binary @catalog-archive.json
 
@@ -226,11 +226,10 @@ curl -s http://127.0.0.1:8787/export
 
 - `indexer.weights_file: expected a non-empty string path` —— `weights_file` 路径
   不存在或为空；相对路径相对**进程工作目录**解析。
-- `POST /announce/listing-ref` 返回 `400 {verify_result: fail:unknown_signer}` ——
-  索引站信任环里没有通告者的公钥。索引站角色只从 `.data/keys/<agentId>.key`
-  （种子）解析 signer，需提前写入该种子文件（演示里 `demo.mjs` 就是这么做的）。
-- 标签检索查不到 —— 只有 `PUT /catalogs/:hash` 镜像过、且其 `catalog.json`
-  带 `metadata.tags` 的目录才会出现在黄页里；先镜像再检索。
+- 陌生身份发送裸 LISTING_REF 返回 `fail:unknown_signer` —— 让 publisher 按
+  `announce_to` 发送完整通告；完整通告会验签并自动保存公钥（TOFU）。
+- 标签检索查不到 —— 检查完整通告是否成功，以及 `catalog.json.metadata.tags`；
+  完整目录 PUT 不是检索前置条件。
 
 ---
 
@@ -239,7 +238,8 @@ curl -s http://127.0.0.1:8787/export
 - 发布站目录：`runlog/publisher-catalog/catalog.json`（`家电维修` 服务，虚构）。
 - 整合商专题：`北京家电维修专题`（tags `北京+家电维修`），member 为发布站 LISTING_REF。
 - 交易身份：`agent_buyer` / `agent_seller` 种子取自 `protocol/test-vectors/vectors.json`
-  （测试向量，非真实秘密）；`agent_integrator` / `agent_indexer` 为演示固定虚构种子。
+  （测试向量，非真实秘密）；`agent_integrator` / `agent_indexer` 每次运行生成全新站点身份，
+  仅保存在 gitignored 的 `runlog/identity/`。
 - 交易内容（DEAL 金额、地址、承运方、回执评语等）均为虚构。
 
 ---
@@ -248,7 +248,7 @@ curl -s http://127.0.0.1:8787/export
 
 - 卡片演示链路写的是「棉花娃娃 / 春季专题」，本实现按任务实现要点改为
   「家电维修 / 北京家电维修专题」（tags `朝阳+家电维修` → 城市级 `北京+家电维修`），
-  其余步骤（通告 + PUT 镜像、标签命中、签 DEAL + 双回执、快照导出、离线查询、
+  其余步骤（轻量通告 + 可选 PUT 镜像、标签命中、签 DEAL + 双回执、快照导出、离线查询、
   杀 publisher 后镜像仍可供目录）与卡片一致。
 - 卡片边界「不做 docker 镜像实测」「不写生产部署（systemd/nginx）」——本目录只交付
   开发/演示形态。

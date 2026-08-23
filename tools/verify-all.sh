@@ -10,7 +10,7 @@ npm run build || fail=1
 
 for d in packages/identity packages/signed-files packages/local-store packages/bt-catalog \
          adapters/email adapters/settlement adapters/human-task \
-         apps/demo-indexer apps/mcp-server integrations/deepseek-harness/plugin; do
+         apps/demo-indexer apps/mcp-server apps/station integrations/deepseek-harness/plugin; do
   echo "=== $d ==="
   (cd "$d" && npx vitest run 2>&1 | grep -E "Tests .*passed|failed") || fail=1
 done

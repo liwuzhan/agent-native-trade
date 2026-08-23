@@ -4,7 +4,7 @@
  * catalog archive mirror.
  *
  * Storage: local-store (M3) owns the fact files (.data/objects/…) and the
- * trust ring (.data/keys/…); this module owns a small receipts/catalogs index
+ * trust ring (local `.data/keys/…` + peer `.data/peers/…`); this module owns a small receipts/catalogs index
  * in its own SQLite file (.data/receipts.sqlite). Fact files are the source of
  * truth; the SQLite index is disposable and re-derivable.
  */
@@ -99,7 +99,7 @@ function rowToRecord(row: ReceiptRow): ReceiptRecord {
   };
 }
 
-/** Build the trust ring the same way local-store does (reads .data/keys). */
+/** Build the trust ring the same way local-store does (local keys + peer public keys). */
 function loadKeyRingFromDisk(dir: string): Map<string, string> {
   const ring = new Map<string, string>();
   const keysDir = join(dir, '.data', 'keys');
@@ -107,13 +107,27 @@ function loadKeyRingFromDisk(dir: string): Map<string, string> {
   try {
     names = readdirSync(keysDir);
   } catch {
-    return ring; // no keys yet
+    // no local keys yet
   }
   for (const name of names) {
     if (!name.endsWith('.key')) continue;
     const agentId = decodeURIComponent(name.slice(0, -'.key'.length));
     const seed = readFileSync(join(keysDir, name), 'utf8').trim();
     ring.set(agentId, publicKeyFromSeed(seed));
+  }
+
+  const peersDir = join(dir, '.data', 'peers');
+  try {
+    for (const name of readdirSync(peersDir)) {
+      if (!name.endsWith('.pub')) continue;
+      const agentId = decodeURIComponent(name.slice(0, -'.pub'.length));
+      const publicKey = readFileSync(join(peersDir, name), 'utf8').trim();
+      if (!ring.has(agentId) && /^[A-Za-z0-9_-]{43}$/.test(publicKey)) {
+        ring.set(agentId, publicKey);
+      }
+    }
+  } catch {
+    // no peer keys yet
   }
   return ring;
 }
@@ -192,6 +206,12 @@ export class Indexer {
   addTrusted(agentId: string, secretKey: string): void {
     this.store.saveKey(agentId, secretKey);
     this.keyRing.set(agentId, publicKeyFromSeed(secretKey));
+  }
+
+  /** Trust public material only; TOFU conflicts are rejected by local-store. */
+  addTrustedPublicKey(agentId: string, publicKey: string): void {
+    this.store.savePeerKey(agentId, publicKey);
+    this.keyRing.set(agentId, publicKey);
   }
 
   private resolveKey = (signer: string): string | undefined => this.keyRing.get(signer);

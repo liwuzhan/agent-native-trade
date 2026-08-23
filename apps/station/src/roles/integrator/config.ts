@@ -53,6 +53,21 @@ function requireNonNegativeInt(value: unknown, field: string): number {
   return value;
 }
 
+function optionalPublicBaseUrl(value: unknown): string | null {
+  if (value === undefined) return null;
+  const raw = requireString(value, 'public_base_url').replace(/\/+$/, '');
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    fail('public_base_url', 'expected an absolute http(s) URL');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    fail('public_base_url', 'expected an absolute http(s) URL');
+  }
+  return raw;
+}
+
 export function parseIntegratorConfig(raw: Record<string, unknown> | undefined): IntegratorConfig {
   const obj = raw === undefined ? {} : raw;
   if (!isPlainObject(obj)) {
@@ -78,5 +93,6 @@ export function parseIntegratorConfig(raw: Record<string, unknown> | undefined):
       obj['announce_retries'] === undefined
         ? DEFAULT_ANNOUNCE_RETRIES
         : requireNonNegativeInt(obj['announce_retries'], 'announce_retries'),
+    public_base_url: optionalPublicBaseUrl(obj['public_base_url']),
   };
 }

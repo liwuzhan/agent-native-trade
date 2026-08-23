@@ -1,0 +1,13 @@
+agent_id: example-publisher
+identity_seed_file: /data/identity.seed
+data_dir: /data
+http: { host: 0.0.0.0, port: 8780 }
+log: { level: info }
+role: publisher
+publisher:
+  catalog_dir: /catalog
+  trackers: []
+  announce_to: ["http://indexer:8780"]
+  watch: true
+  dht: false
+  public_base_url: "http://127.0.0.1:8788"

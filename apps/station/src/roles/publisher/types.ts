@@ -21,6 +21,8 @@ export interface PublisherConfig {
   poll_interval_ms: number;
   announce_timeout_ms: number;
   announce_retries: number;
+  /** Externally reachable base URL advertised in distribution_refs. */
+  public_base_url: string | null;
 }
 
 /** Metadata extracted from `catalog.json` at the catalog directory root. */
@@ -32,7 +34,7 @@ export interface CatalogMetadata {
    * Tags live in `catalog.json` `metadata.tags` (hash-protected by the
    * manifest), never in the LISTING_REF body (its schema is
    * `additionalProperties: false`). The publisher reads them for logging only;
-   * the indexer reads them from the mirrored catalog content.
+   * the indexer reads them from the hash-verified compact catalog card.
    */
   tags: string[];
 }

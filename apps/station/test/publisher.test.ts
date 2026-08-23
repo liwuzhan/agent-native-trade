@@ -183,13 +183,15 @@ async function startIndexerStub(
           json(400, { error: 'invalid_json' });
           return;
         }
-        const result = verifyFile(file as SignedFile, (signer) => (signer === agentId ? publicKey : undefined));
+        const announcement = file as { listing_ref?: SignedFile };
+        const listingRef = announcement.listing_ref ?? (file as SignedFile);
+        const result = verifyFile(listingRef, (signer) => (signer === agentId ? publicKey : undefined));
         if (result !== 'valid') {
           json(400, { error: 'verify_failed', verify_result: result });
           return;
         }
-        const id = objectId(file as SignedFile);
-        refs.set(id, file as SignedFile);
+        const id = objectId(listingRef);
+        refs.set(id, listingRef);
         json(200, { status: 'accepted', object_id: id });
       });
       return;
@@ -254,7 +256,13 @@ describe('publisher role (S3)', () => {
     dirs.push(catalogDir);
     writeCatalog(catalogDir, { catalogId: 'pudong-fasteners', itemId: 'bolt-m8', revision: 3, tags: ['螺栓', '五金'] });
 
-    const { ctx } = await buildCtx({ catalog_dir: catalogDir, trackers: [], announce_to: [], dht: false });
+    const { ctx } = await buildCtx({
+      catalog_dir: catalogDir,
+      trackers: [],
+      announce_to: [],
+      dht: false,
+      public_base_url: 'https://catalog.example/station/',
+    });
     const handle = await startPublisher(ctx);
 
     const listing = handle.current()!;
@@ -284,7 +292,7 @@ describe('publisher role (S3)', () => {
     const https = body.distribution_refs.find((d) => d.type === 'https');
     expect(magnet).toBeDefined();
     expect(https).toBeDefined();
-    expect(https!.uri).toBe(`http://127.0.0.1:${handle.port}/catalogs/${body.catalog_hash}`);
+    expect(https!.uri).toBe(`https://catalog.example/station/catalogs/${body.catalog_hash}`);
 
     // catalog_hash equals catalogHash over the served archive manifest, and the
     // archive files verify against that manifest.
@@ -464,6 +472,10 @@ describe('publisher role (S3)', () => {
     expect(announceBody.status).toBe('published');
     expect(announceBody.object_id).toBe(listing.objectId);
     expect(announceBody.listing_ref.object_type).toBe('LISTING_REF');
+
+    const reannounce = await fetch(`${base}/announce`, { method: 'POST' });
+    expect(reannounce.status).toBe(200);
+    expect(((await reannounce.json()) as { status: string }).status).toBe('announced');
 
     const missing = await httpGet(`${base}/catalogs/sha256:${'0'.repeat(64)}`);
     expect(missing.status).toBe(404);

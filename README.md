@@ -24,7 +24,7 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | M0 protocol（schemas + test-vectors） | ✅ | 三实现互验（node:crypto / OpenSSL / PyNaCl） |
 | M1 identity | ✅ | 18/18 |
 | M2 signed-files | ✅ | 25/25 |
-| M3 local-store | ✅ | 19/19（+ M10 公钥信任环扩展：`.data/peers/`） |
+| M3 local-store | ✅ | 20/20（含 TOFU 公钥信任环：`.data/peers/`） |
 | M4 bt-catalog | ✅ | 21/21（DHT 验收为手动脚本） |
 | M5 email | ✅ | 47 单元 + GreenMail 集成（CI） |
 | M6 settlement | ✅ | 12/12 |
@@ -50,4 +50,8 @@ export AGENT_TRADE_REPO="$(pwd)"                        # DSH 会话进程环境
 
 ## 模板站（2026-08-23）
 
-`apps/station/`：单工件三角色（indexer / publisher / integrator），配置即角色。S1–S6 全部完成：三角色 46 测试、互演 demo（`examples/station-demo.sh`）、"5 分钟起站"文档、SKILL.md 六个（干净会话实操验收通过，见 `docs/s6-acceptance.md`）。
+`apps/station/`：单工件三角色（indexer / publisher / integrator），配置即角色。首次完整通告即可用公钥自举并建立轻量索引，不复制发布者私钥，也不要求索引站镜像完整目录；整包 PUT 仅是可选缓存。当前 Station 48 测试，含互演 demo（`examples/station-demo.sh`）和 DSH SKILL 示例。
+
+可直接部署的双站模板见 `deploy/station/`：同一个 Docker 镜像启动 publisher + indexer，默认只绑定本机端口，适合先接反向代理/隧道再开放。
+
+真实公网 + 双 NAT 电脑的首轮互操作测试见 [`docs/distributed-pilot-test-plan-v0.1.md`](docs/distributed-pilot-test-plan-v0.1.md)：先用轻量索引与可选 HTTP 镜像跑通确定性闭环，再单独测 BT / 公网整合商的目录交付能力。

@@ -1,0 +1,42 @@
+services:
+  indexer:
+    build:
+      context: ../..
+      dockerfile: apps/station/Dockerfile
+    command: ["indexer", "--config", "deploy/station/config/indexer.yaml"]
+    restart: unless-stopped
+    volumes:
+      - indexer-data:/data
+    ports:
+      - "127.0.0.1:${INDEXER_PORT:-8787}:8780"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8780/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  publisher:
+    build:
+      context: ../..
+      dockerfile: apps/station/Dockerfile
+    command: ["publisher", "--config", "deploy/station/config/publisher.yaml"]
+    restart: unless-stopped
+    depends_on:
+      indexer:
+        condition: service_healthy
+    environment:
+      STATION_PUBLISHER: '{"catalog_dir":"/catalog","trackers":[],"announce_to":["http://indexer:8780"],"watch":true,"dht":false,"public_base_url":"${PUBLISHER_PUBLIC_BASE_URL:-http://127.0.0.1:8788}"}'
+    volumes:
+      - publisher-data:/data
+      - ./catalog:/catalog:ro
+    ports:
+      - "127.0.0.1:${PUBLISHER_PORT:-8788}:8780"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8780/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  indexer-data:
+  publisher-data:

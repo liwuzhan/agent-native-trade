@@ -42,7 +42,8 @@ integrator: { theme, tags: [], members: [], reseed: false }
 ```text
 POST /announce/listing-ref
   Content-Type: application/json
-  Body: 完整 LISTING_REF 签名信封（M2 SignedFile JSON）
+  Body: ListingAnnouncement（公开身份 + LISTING_REF + 轻量 catalog card）；
+        已知 signer 的裸 LISTING_REF 仅作兼容
   → 200 { "status": "accepted", "object_id": "sha256:..." }       # 验签通过且收录
   → 400 { "error": "<reason>", "verify_result": "fail:..." }      # 验签/schema 失败
   → 409 { "error": "conflict", "object_id": "..." }               # 同 object_id 异内容

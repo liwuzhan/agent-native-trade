@@ -3,13 +3,15 @@
  *
  * The M8 kernel owns the receipt index (`.data/receipts.sqlite`) and the fact
  * store (`.data/objects/`). This file owns the *station* side of the indexer:
- * the announced LISTING_REF references and the tags extracted from mirrored
- * catalog archives. Both are re-derivable bookkeeping over the M8 mirror, kept
- * in a single JSON file so they survive restarts.
+ * announced LISTING_REF references, compact catalog cards and extracted tags.
+ * Full M8 archive mirroring is optional; search state stays small and survives
+ * restarts in a single JSON file.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+
+import type { CatalogCard } from '../../announcement.js';
 
 export interface ListingRefRecord {
   /** M2 object_id of the LISTING_REF envelope ("sha256:" + lowerhex(SHA-256(signing_input))). */
@@ -21,6 +23,7 @@ export interface ListingRefRecord {
   catalog_hash: string;
   item_id: string;
   item_revision?: number;
+  distribution_refs?: { type: string; uri: string }[];
   recorded_at: string;
 }
 
@@ -28,6 +31,8 @@ export interface IndexerStateData {
   listingRefs: ListingRefRecord[];
   /** Tags per mirrored catalog_hash; `null` = catalog has no catalog.json/tags. */
   catalogTags: Record<string, string[] | null>;
+  /** Compact, hash-verified metadata needed for search; never the full archive. */
+  catalogCards: Record<string, CatalogCard>;
 }
 
 export class IndexerState {
@@ -50,12 +55,16 @@ export class IndexerState {
           parsed.catalogTags !== null && typeof parsed.catalogTags === 'object'
             ? (parsed.catalogTags as Record<string, string[] | null>)
             : {};
-        return { listingRefs, catalogTags };
+        const catalogCards =
+          parsed.catalogCards !== null && typeof parsed.catalogCards === 'object'
+            ? (parsed.catalogCards as Record<string, CatalogCard>)
+            : {};
+        return { listingRefs, catalogTags, catalogCards };
       } catch {
-        return { listingRefs: [], catalogTags: {} };
+        return { listingRefs: [], catalogTags: {}, catalogCards: {} };
       }
     }
-    return { listingRefs: [], catalogTags: {} };
+    return { listingRefs: [], catalogTags: {}, catalogCards: {} };
   }
 
   private persist(): void {
@@ -83,6 +92,16 @@ export class IndexerState {
 
   getCatalogTags(catalogHash: string): string[] | null | undefined {
     return this.data.catalogTags[catalogHash];
+  }
+
+  setCatalogCard(catalogHash: string, card: CatalogCard, tags: string[] | null): void {
+    this.data.catalogCards[catalogHash] = card;
+    this.data.catalogTags[catalogHash] = tags;
+    this.persist();
+  }
+
+  getCatalogCard(catalogHash: string): CatalogCard | undefined {
+    return this.data.catalogCards[catalogHash];
   }
 
   /** Number of mirrored catalogs (distinct catalog_hash present in the archive map). */

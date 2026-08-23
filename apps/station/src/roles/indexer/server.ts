@@ -11,6 +11,7 @@
  *   GET  /                           read-only status page (single HTML)
  *   POST /announce/listing-ref       S1 contract: verify → record reference
  *   GET  /catalogs?tag=a&tag=b       yellow pages (AND tag search)
+ *   GET  /catalogs/:hash/card        compact, hash-verified catalog metadata
  *   POST /receipts                   M8 intake (passthrough)
  *   GET  /subjects/:agentId          M8 subject view (passthrough)
  *   GET  /export                     M8 signed snapshot (passthrough)
@@ -26,6 +27,8 @@ import type { SignedFile, VerifyResult } from '@agent-trade/signed-files';
 import { IndexerError } from '@agent-trade/demo-indexer';
 import type { Indexer } from '@agent-trade/demo-indexer';
 
+import { isListingAnnouncement, verifyCatalogCard } from '../../announcement.js';
+import type { CatalogCard } from '../../announcement.js';
 import type { StationContext } from '../../types.js';
 import { extractCatalogTags } from './catalog-tags.js';
 import { IndexerState } from './state.js';
@@ -109,15 +112,45 @@ export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       return c.json({ error: 'invalid_envelope' }, 400);
     }
-    const file = parsed as SignedFile;
+    reloadTrustRing(ctx);
+
+    let file: SignedFile;
+    let card: CatalogCard | undefined;
+    let cardTags: string[] | null | undefined;
+    if (isListingAnnouncement(parsed)) {
+      file = parsed.listing_ref;
+      card = parsed.catalog;
+      const body = file.body as { publisher?: unknown; catalog_hash?: unknown };
+      if (body.publisher !== parsed.identity.agent_id) {
+        return c.json({ error: 'identity_mismatch', message: 'identity.agent_id must equal LISTING_REF publisher' }, 400);
+      }
+      const inlineResult = verifyFile(file, (signer) =>
+        signer === parsed.identity.agent_id ? parsed.identity.public_key : resolveKey(signer),
+      );
+      if (inlineResult !== 'valid') {
+        return c.json({ error: `verification failed (${inlineResult})`, verify_result: inlineResult }, 400);
+      }
+      if (typeof body.catalog_hash !== 'string') {
+        return c.json({ error: 'invalid_catalog_hash' }, 400);
+      }
+      try {
+        cardTags = verifyCatalogCard(card, body.catalog_hash);
+        // Trust on first use: persist only the public key after the signature
+        // and hash chain have both been verified. A later conflicting key is
+        // rejected instead of silently rotating the identity.
+        ctx.store.savePeerKey(parsed.identity.agent_id, parsed.identity.public_key);
+        indexer.addTrustedPublicKey(parsed.identity.agent_id, parsed.identity.public_key);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const status = message.includes('key conflict') ? 409 : 400;
+        return c.json({ error: status === 409 ? 'identity_conflict' : 'invalid_catalog_card', message }, status);
+      }
+    } else {
+      file = parsed as SignedFile;
+    }
     if (file.object_type !== 'LISTING_REF') {
       return c.json({ error: 'wrong_object_type', message: `expected LISTING_REF, got ${String(file.object_type)}` }, 400);
     }
-
-    // Hot-reload the trust ring before verification: a key added or rotated on
-    // disk after openStore must be honoured without an indexer restart (the M3
-    // store only snapshots `.data/keys/*.key` into memory at openStore time).
-    reloadTrustRing(ctx);
 
     const result = verifyFile(file, resolveKey);
     if (result !== 'valid') {
@@ -129,6 +162,9 @@ export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
     const existing = state.findListingRef(id);
     if (existing !== undefined) {
       if (existing.content === content) {
+        if (card !== undefined && cardTags !== undefined) {
+          state.setCatalogCard(existing.catalog_hash, card, cardTags);
+        }
         return c.json({ status: 'accepted', object_id: id }, 200);
       }
       return c.json({ error: 'conflict', object_id: id }, 409);
@@ -140,6 +176,7 @@ export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
       catalog_hash: string;
       item_id: string;
       item_revision?: number;
+      distribution_refs?: { type: string; uri: string }[];
     };
 
     // Persist the fact (source of truth) — idempotent under the same object_id.
@@ -162,15 +199,19 @@ export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
       catalog_hash: body.catalog_hash,
       item_id: body.item_id,
       item_revision: body.item_revision,
+      distribution_refs: body.distribution_refs,
       recorded_at: new Date().toISOString(),
     });
+    if (card !== undefined && cardTags !== undefined) {
+      state.setCatalogCard(body.catalog_hash, card, cardTags);
+    }
 
     ctx.logger('info', 'listing-ref accepted', { object_id: id, catalog_hash: body.catalog_hash });
     return c.json({ status: 'accepted', object_id: id }, 200);
   });
 
-  // Yellow pages: tag search over mirrored catalogs (AND semantics). Catalogs
-  // without tags stay in the mirror but are absent here (module card S2 rule).
+  // Yellow pages: tag search over verified cards or optional mirrored catalogs
+  // (AND semantics). Catalogs without tags are absent here.
   app.get('/catalogs', (c) => {
     const queryTags = c.req.queries('tag') ?? [];
     const entries = state.taggedCatalogs().flatMap(({ catalog_hash, tags }) => {
@@ -187,12 +228,28 @@ export function buildIndexerApp(opts: BuildIndexerAppOptions): Hono {
                 catalog_id: ref.catalog_id,
                 item_id: ref.item_id,
                 item_revision: ref.item_revision,
+                distribution_refs: ref.distribution_refs ?? [],
+                catalog_card: `/catalogs/${encodeURIComponent(catalog_hash)}/card`,
               }
             : {}),
         },
       ];
     });
     return c.json({ catalogs: entries });
+  });
+
+  app.get('/catalogs/:hash/card', (c) => {
+    const catalogHashValue = c.req.param('hash');
+    const cardValue = state.getCatalogCard(catalogHashValue);
+    if (cardValue === undefined) {
+      return c.json({ error: 'catalog_card_not_found', catalog_hash: catalogHashValue }, 404);
+    }
+    const ref = state.listingRefs().find((entry) => entry.catalog_hash === catalogHashValue);
+    return c.json({
+      catalog_hash: catalogHashValue,
+      catalog: cardValue,
+      ...(ref !== undefined ? { listing_ref: JSON.parse(ref.content) as SignedFile } : {}),
+    });
   });
 
   // --- M8 passthrough endpoints (thin adapter over the imported Indexer) ---

@@ -1,14 +1,12 @@
 /**
  * @agent-trade/station — announce to indexer stations (module S3).
  *
- * POSTs the signed LISTING_REF envelope to every `announce_to` base URL with a
- * per-attempt timeout and a finite number of retries. Failures are only logged
- * (never thrown), so an unreachable indexer cannot block seeding.
+ * POSTs a transport announcement (public identity + signed LISTING_REF + the
+ * compact catalog card) to every `announce_to` base URL. No secret key and no
+ * complete catalog archive crosses this boundary.
  */
 
-import { serialize } from '@agent-trade/signed-files';
-import type { SignedFile } from '@agent-trade/signed-files';
-
+import type { ListingAnnouncement } from '../../announcement.js';
 import type { AnnounceResult } from './types.js';
 
 const LISTING_REF_PATH = '/announce/listing-ref';
@@ -60,11 +58,11 @@ function delay(ms: number): Promise<void> {
 }
 
 export async function announceListingRef(
-  listingRef: SignedFile,
+  announcement: ListingAnnouncement,
   announceTo: string[],
   opts: AnnounceOptions,
 ): Promise<AnnounceResult[]> {
-  const body = serialize(listingRef);
+  const body = JSON.stringify(announcement);
   const results: AnnounceResult[] = [];
 
   for (const base of announceTo) {

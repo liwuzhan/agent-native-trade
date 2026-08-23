@@ -28,7 +28,6 @@ const ART = join(ROOT, 'runlog', 'artifacts');
 const BUYER = 'agent_buyer';
 const SELLER = 'agent_seller';
 const INTEGRATOR = 'agent_integrator';
-const INTEGRATOR_SEED = 'SYJNK8ViLRxRrc_wqiBT4QgobUFWTk4iKIJkLy4s8uQ';
 
 // ---------------------------------------------------------------------------
 // 断言工具
@@ -77,15 +76,12 @@ const vectors = JSON.parse(readFileSync(VECTORS_PATH, 'utf8'));
 const buyerSeed = vectors.identities.agent_buyer.seed;
 const sellerSeed = vectors.identities.agent_seller.seed;
 
-const KEYS = new Map([
-  [BUYER, buyerSeed],
-  [SELLER, sellerSeed],
-  [INTEGRATOR, INTEGRATOR_SEED],
+const PUBLIC_KEYS = new Map([
+  [BUYER, publicKeyFromSeed(buyerSeed)],
+  [SELLER, publicKeyFromSeed(sellerSeed)],
+  [INTEGRATOR, summary.identities.integrator_public_key],
 ]);
-const resolveKey = (signer) => {
-  const k = KEYS.get(signer);
-  return k === undefined ? undefined : publicKeyFromSeed(k);
-};
+const resolveKey = (signer) => PUBLIC_KEYS.get(signer);
 
 console.log(`S5 断言 · ports=${JSON.stringify(summary.ports)}\n`);
 

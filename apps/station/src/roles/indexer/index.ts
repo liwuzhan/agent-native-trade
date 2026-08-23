@@ -8,7 +8,6 @@
  * read-only status page.
  */
 
-import { publicKeyFromSeed } from '@agent-trade/identity';
 import { Indexer, loadWeights, weightsHash } from '@agent-trade/demo-indexer';
 
 import type { StationContext, StationRole } from '../../types.js';
@@ -41,10 +40,7 @@ export function createIndexerRole(): IndexerRole {
 
       const indexer = new Indexer({ dir: ctx.dataDir, weights, indexerId: ctx.agentId });
 
-      const resolveKey = (signer: string): string | undefined => {
-        const seed = ctx.store.getKey(signer);
-        return seed === undefined ? undefined : publicKeyFromSeed(seed);
-      };
+      const resolveKey = (signer: string): string | undefined => ctx.store.getPublicKey(signer);
 
       const state = new IndexerState(ctx.dataDir);
       const app = buildIndexerApp({ ctx, indexer, state, weightsHashValue, resolveKey });

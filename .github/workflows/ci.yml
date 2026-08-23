@@ -57,6 +57,28 @@ jobs:
       - run: npm test --prefix apps/${{ matrix.pkg }}
       - run: npm run build --prefix apps/${{ matrix.pkg }}
 
+  station:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Build station dependencies
+        run: |
+          for dir in packages/identity packages/signed-files packages/local-store; do
+            npm ci --prefix "$dir"
+            npm run build --prefix "$dir"
+          done
+          npm ci --ignore-scripts --prefix packages/bt-catalog
+          npm run build --prefix packages/bt-catalog
+          npm ci --prefix apps/demo-indexer
+          npm run build --prefix apps/demo-indexer
+      - run: npm ci --prefix apps/station
+      - run: npm test --prefix apps/station
+      - run: npm run test:typecheck --prefix apps/station
+      - name: Three-role station demo
+        run: bash apps/station/examples/station-demo.sh
+
   email:
     runs-on: ubuntu-latest
     services:

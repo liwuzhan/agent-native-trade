@@ -17,6 +17,7 @@ import { catalogHash, seed } from '@agent-trade/bt-catalog';
 import type { SeedResult } from '@agent-trade/bt-catalog';
 import { addSignature, buildObject, serialize } from '@agent-trade/signed-files';
 
+import { buildListingAnnouncement } from '../../announcement.js';
 import type { StationContext } from '../../types.js';
 import { announceListingRef } from './announce.js';
 import { buildCatalogArchive, buildCatalogManifest, parseCatalogMetadata, readCatalogDir } from './catalog.js';
@@ -53,6 +54,7 @@ export class Publisher {
   }
 
   private urlFor(port: number): string {
+    if (this.config.public_base_url !== null) return this.config.public_base_url;
     const host = this.ctx.config.http.host === '0.0.0.0' || this.ctx.config.http.host === '::'
       ? '127.0.0.1'
       : this.ctx.config.http.host;
@@ -121,7 +123,13 @@ export class Publisher {
   async announce(): Promise<AnnounceResult[]> {
     if (!this.state) return [];
     try {
-      return await announceListingRef(this.state.result.listingRef, this.config.announce_to, {
+      const announcement = buildListingAnnouncement(
+        this.ctx.agentId,
+        this.ctx.publicKey,
+        this.state.result.listingRef,
+        this.state.result.archive,
+      );
+      return await announceListingRef(announcement, this.config.announce_to, {
         timeoutMs: this.config.announce_timeout_ms,
         retries: this.config.announce_retries,
         log: this.ctx.logger,
@@ -160,7 +168,7 @@ export class Publisher {
 
   private startServer(): Promise<void> {
     return new Promise<void>((resolveListen, rejectListen) => {
-      const server = createServer((req, res) => this.handleRequest(req, res));
+      const server = createServer((req, res) => void this.handleRequest(req, res));
       this.server = server;
       const onError = (err: Error): void => rejectListen(err);
       server.once('error', onError);
@@ -191,7 +199,7 @@ export class Publisher {
     });
   }
 
-  private handleRequest(req: IncomingMessage, res: ServerResponse): void {
+  private async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
 
     if (req.method === 'GET' && url.pathname === '/healthz') {
@@ -209,6 +217,16 @@ export class Publisher {
         return;
       }
       sendJson(res, 200, serialize(this.state.result.listingRef));
+      return;
+    }
+
+    if (url.pathname === '/announce') {
+      if (req.method !== 'POST') {
+        sendJson(res, 405, { error: 'method not allowed' });
+        return;
+      }
+      const results = await this.announce();
+      sendJson(res, 200, { status: 'announced', results });
       return;
     }
 
