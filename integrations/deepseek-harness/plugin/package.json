@@ -1,7 +1,7 @@
 {
   "name": "@agent-trade/dsh-integration",
   "version": "0.2.0",
-  "description": "agent-trade/0.2 DSH 集成（模块 M10）：零依赖 Cordis Host 插件（plugin.mjs）+ JSONL daemon 桥 + 16+2 交易工具",
+  "description": "agent-trade/0.2 DSH 集成（模块 M10）：零依赖 Cordis Host 插件（plugin.mjs）+ JSONL daemon 桥 + 23 个交易/联系工具",
   "type": "module",
   "license": "Apache-2.0",
   "private": true,

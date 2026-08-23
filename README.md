@@ -10,7 +10,21 @@
 
 **本仓库权威源**：`protocol/test-vectors/`。任何实现通过测试向量互验即为合规实现。
 
-## 快速开始
+## 当前已经跑通
+
+项目已经不只是协议和 Schema：参考实现现可完成目录发布/索引、模型检索、邮件首触、事件驱动收件、按需读取与回复、合同双签、履约事件和评价回执。
+
+```text
+Publisher / Integrator → Catalog + contact_refs → Indexer → Buyer
+                                                        │
+Buyer / Seller ← DSH contact bridge ← WakeTask queue ← trade-inboxd ← Email
+      │
+      └→ DEAL 双签 → Settlement / HumanTask → TRADE_RECEIPT → Indexer
+```
+
+这里保持三个边界：协议对象不依赖客户端；`trade-inboxd` 负责长连接和可靠入队；DSH 只在需要时读取正文、回复并确认 WakeTask。邮件正文和附件始终是不可信数据。
+
+## 协议向量快速校验
 
 ```bash
 node tools/generate-test-vectors.mjs     # 生成/再生成测试向量
@@ -37,7 +51,7 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | Contact core | ✅ 首批实现 | 10/10（联系解析 + WakeTask + 文件队列） |
 | AgentMail contact adapter | ✅ 首批实现 | 7/7（REST + 响应限额 + WebSocket 兼容包络） |
 | `trade-inboxd` | ✅ 首批实现 | 5/5（事件队列 + 可选本地命令触发） |
-| DSH contact bridge | ✅ 首批实现 | 5 新工具（wake list/ack + message get/reply/send，23 工具）随 M10 单测与演示验收 |
+| DSH contact bridge | ✅ 首批实现 | 5 新工具（wake list/ack + message get/reply/send，共 23 工具）+ 6 步演示 16 断言 |
 
 ### M10 快速开始（DSH 集成）
 
@@ -49,7 +63,7 @@ bash integrations/deepseek-harness/examples/run-contact-demo.sh # contact bridge
 export AGENT_TRADE_REPO="$(pwd)"                        # DSH 会话进程环境（行 config 兜底）
 ```
 
-contact bridge（runtime bridge contract 的 DSH 侧）：daemon 新增 `contact_wake_list/ack`、`contact_message_get`、`contact_reply`、`contact_send` 五个工具（共 23 工具）。默认 provider `maildrop` 为本地 loopback（无外网依赖）；真实邮箱把 preset 行 config 的 `contactProvider` 切到 `agentmail` 并设 `AGENTMAIL_API_KEY` + `AGENT_TRADE_CONTACT_INBOX_ID`，WakeTask 队列指向 `trade-inboxd` 的 dataDir（`AGENT_TRADE_WAKE_QUEUE`）。长连接与 WakeTask 生成留在 `trade-inboxd`，DSH 会话只按需取信/回信。
+contact bridge（runtime bridge contract 的 DSH 侧）：daemon 新增 `contact_wake_list/ack`、`contact_message_get`、`contact_reply`、`contact_send` 五个工具（共 23 工具）。默认 provider `maildrop` 为本地 loopback（无外网依赖）；真实邮箱把 preset 行 config 的 `contactProvider` 切到 `agentmail` 并设 `AGENTMAIL_API_KEY` + `AGENT_TRADE_CONTACT_INBOX_ID`，WakeTask 队列指向 `trade-inboxd` 的 dataDir（`AGENT_TRADE_WAKE_QUEUE`）。长连接与 WakeTask 生成留在 `trade-inboxd`，DSH 会话只按需取信/回信。当前完成的是会话内 pull bridge；`trade-inboxd` 主动启动/恢复 DSH 会话仍登记在 `FUTURE.md`。
 
 接口探测记录：`integrations/deepseek-harness/INSPECTION.md`（运行时验证过的 Cordis API）。
 
@@ -64,9 +78,9 @@ contact bridge（runtime bridge contract 的 DSH 侧）：daemon 新增 `contact
 
 真实公网 + 双 NAT 电脑的首轮互操作测试见 [`docs/distributed-pilot-test-plan-v0.1.md`](docs/distributed-pilot-test-plan-v0.1.md)：先用轻量索引与可选 HTTP 镜像跑通确定性闭环，再单独测 BT / 公网整合商的目录交付能力。
 
-## 邮件事件入口（首批实现）
+## 事件驱动联系运行时
 
-`packages/contact-core/`、`adapters/contact-agentmail/` 与 `apps/trade-inboxd/` 已实现邮件到 WakeTask 的最小链路。默认模式只写入本地可靠队列；是否自动回复、调用本地模型、转交另一运行时或等待人工确认，由本机策略决定。
+`packages/contact-core/`、`adapters/contact-agentmail/` 与 `apps/trade-inboxd/` 已实现邮件到 WakeTask 的最小链路。正常收件由 WebSocket 事件触发，没有固定十秒轮询；只有断线重连使用有界指数退避。默认模式只写入本地可靠队列，是否自动回复、调用本地模型、转交另一运行时或等待人工确认，由本机策略决定。
 
 ```bash
 npm --prefix packages/contact-core install && npm --prefix packages/contact-core run build
@@ -78,4 +92,4 @@ node apps/trade-inboxd/dist/cli.js doctor --config apps/trade-inboxd/inboxd.loca
 node apps/trade-inboxd/dist/cli.js run --config apps/trade-inboxd/inboxd.local.json
 ```
 
-具体边界、供应商选型与后续 Codex 参考接入见 [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md)。
+生产路径为 AgentMail WebSocket → `trade-inboxd` → WakeTask 队列 → runtime bridge；本地演示用 `maildrop` + `inboxd-sim` 生成相同文件格式，不依赖外网。具体边界、供应商选型与后续 Codex 参考接入见 [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md)，明确推迟项见 [`FUTURE.md`](FUTURE.md)。
