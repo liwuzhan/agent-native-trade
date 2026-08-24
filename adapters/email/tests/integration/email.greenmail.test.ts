@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createMailAdapter } from '../../src/adapter.js';
 import type { FetchRecord } from '../../src/imap.js';
 import type { MailAdapter } from '../../src/types.js';
@@ -40,6 +40,10 @@ describe.skipIf(!ENABLED)('GreenMail integration', () => {
       await a.close().catch(() => undefined);
     }
     await rm(dir, { recursive: true, force: true });
+  });
+
+  beforeEach(async () => {
+    await purgeMailbox();
   });
 
   /** Each adapter gets its own inboxDir so attachment-landing assertions are isolated. */
@@ -79,6 +83,24 @@ describe.skipIf(!ENABLED)('GreenMail integration', () => {
     try {
       const mailbox = await client.mailboxOpen('INBOX');
       return mailbox.exists;
+    } finally {
+      await client.logout();
+    }
+  }
+
+  /** Remove messages left by the previous case so policy-rejected mail cannot leak into the next adapter. */
+  async function purgeMailbox(): Promise<void> {
+    const client = new ImapFlow({
+      host: '127.0.0.1',
+      port: 3143,
+      secure: false,
+      auth: { user: 'trader', pass: 'secret' },
+      logger: false,
+    });
+    await client.connect();
+    try {
+      await client.mailboxOpen('INBOX');
+      await client.messageDelete('1:*');
     } finally {
       await client.logout();
     }
@@ -142,7 +164,7 @@ describe.skipIf(!ENABLED)('GreenMail integration', () => {
       await client.logout();
     }
     expect(raw).toBeTruthy();
-    expect(raw).toMatch(/^X-Trade-Id: T-HEADER-9$/m);
+    expect(raw).toMatch(/^X-Trade-Id: T-HEADER-9$/im);
     expect(raw).toMatch(/^Message-ID: <.+@.+>$/m);
   });
 
