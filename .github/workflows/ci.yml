@@ -15,47 +15,26 @@ jobs:
       - run: bash tools/verify-vectors-openssl.sh
       - run: python3 tools/verify-vectors-pynacl.py
 
-  packages:
+  core:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        pkg: [identity, signed-files, local-store, bt-catalog]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
-      - run: npm ci --prefix packages/${{ matrix.pkg }}
-      - run: npm test --prefix packages/${{ matrix.pkg }}
-      - run: npm run build --prefix packages/${{ matrix.pkg }}
-
-  adapters:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        pkg: [settlement, human-task]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24 }
-      - run: npm ci --prefix adapters/${{ matrix.pkg }}
-      - run: npm test --prefix adapters/${{ matrix.pkg }}
-      - run: npm run build --prefix adapters/${{ matrix.pkg }}
-
-  apps:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        pkg: [demo-indexer]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24 }
-      - run: npm ci --prefix apps/${{ matrix.pkg }}
-      - run: npm test --prefix apps/${{ matrix.pkg }}
-      - run: npm run build --prefix apps/${{ matrix.pkg }}
+      - name: Test packages in dependency order
+        run: |
+          for dir in \
+            packages/identity \
+            packages/signed-files \
+            packages/local-store \
+            packages/bt-catalog \
+            adapters/settlement \
+            adapters/human-task \
+            apps/demo-indexer; do
+            npm ci --prefix "$dir"
+            npm test --prefix "$dir"
+            npm run build --prefix "$dir"
+          done
 
   station:
     runs-on: ubuntu-latest

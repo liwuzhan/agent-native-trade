@@ -117,7 +117,9 @@ describe.skipIf(!ENABLED)('GreenMail integration', () => {
 
   it('writes the X-Trade-Id header literally on the wire', async () => {
     const { adapter } = makeAdapter();
+    const before = await mailboxCount();
     await adapter.send({ to: TO, tradeId: 'T-HEADER-9', subject: 'header check', text: 'x' });
+    await waitForMailboxGrowth(before);
 
     // find the delivered message's raw source with a test-owned client
     const client = new ImapFlow({
