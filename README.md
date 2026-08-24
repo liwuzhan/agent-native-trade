@@ -1,9 +1,10 @@
-# agent-trade-protocol
+# Agent Native Trade
 
 以模型为主体的开放交易闭环协议 · 参考实现（Apache-2.0）。
 
 **入口文档**：
 - [`AGENT_SETUP.md`](AGENT_SETUP.md) — 给模型的接入说明：模型自行安装、配置和验证，只向人类索取不可自动取得的账号/授权
+- [`packages/dsh-plugin/`](packages/dsh-plugin/) — 可由 `dsh plugin` 安装的标准 DSH bundle
 - [`protocol/specification.md`](protocol/specification.md) — 仓库内协议规范；冲突处以 Schema 与测试向量为准
 - [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md) — 联系方式、邮件服务、NAT 收件自触发与开箱安装选型（面向 2026-09）
 
@@ -54,19 +55,29 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | `trade-inboxd` | ✅ 首批实现 | 5/5（事件队列 + 可选本地命令触发） |
 | DSH contact bridge | ✅ 首批实现 | 5 新工具（wake list/ack + message get/reply/send，共 23 工具）+ 6 步演示 16 断言 |
 
-### M10 快速开始（DSH 集成）
+### M10 快速开始（DSH 标准 bundle）
 
-干净克隆先按 [`AGENT_SETUP.md`](AGENT_SETUP.md) 安装并按依赖顺序构建；下面命令假定依赖已经就绪。
+普通用户不需要克隆或构建整个仓库。把预构建 bundle 安装进正在使用的 profile：
 
 ```bash
-bash integrations/deepseek-harness/install-presets.sh   # 构建 + 安装 trade-buyer/trade-seller preset
-node integrations/deepseek-harness/examples/setup-catalog.mjs  # 预置演示身份/目录
-bash integrations/deepseek-harness/examples/run-demo.sh # 最小链路 9 步脚本化演示
-bash integrations/deepseek-harness/examples/run-contact-demo.sh # contact bridge 6 步演示（WakeTask→取信→回信→ack）
-export AGENT_TRADE_REPO="$(pwd)"                        # DSH 会话进程环境（行 config 兜底）
+dsh plugin --profile web add \
+  https://github.com/liwuzhan/agent-native-trade/releases/latest/download/agent-trade-dsh-plugin.tgz
+dsh --profile web --dump-config
 ```
 
-contact bridge（runtime bridge contract 的 DSH 侧）：daemon 新增 `contact_wake_list/ack`、`contact_message_get`、`contact_reply`、`contact_send` 五个工具（共 23 工具）。默认 provider `maildrop` 为本地 loopback（无外网依赖）；真实邮箱把 preset 行 config 的 `contactProvider` 切到 `agentmail` 并设 `AGENTMAIL_API_KEY` + `AGENT_TRADE_CONTACT_INBOX_ID`，WakeTask 队列指向 `trade-inboxd` 的 dataDir（`AGENT_TRADE_WAKE_QUEUE`）。长连接与 WakeTask 生成留在 `trade-inboxd`，DSH 会话只按需取信/回信。当前完成的是会话内 pull bridge；`trade-inboxd` 主动启动/恢复 DSH 会话仍登记在 `FUTURE.md`。
+安装包声明 `dsh.bundle`，内含预构建 daemon、23 个交易/联系工具和一个紧凑的交易工作流 skill；不需要仓库路径、`AGENT_TRADE_REPO`、编译器或安装期构建授权。默认 provider `maildrop` 是无外网依赖的本地回环。接真实邮箱时设置 `AGENT_TRADE_CONTACT_PROVIDER=agentmail`、`AGENTMAIL_API_KEY` 与 `AGENT_TRADE_CONTACT_INBOX_ID`。
+
+需要开发或验证旧 buyer/seller preset 时，再从源码执行：
+
+```bash
+bash integrations/deepseek-harness/install-presets.sh
+node integrations/deepseek-harness/examples/setup-catalog.mjs
+bash integrations/deepseek-harness/examples/run-demo.sh
+bash integrations/deepseek-harness/examples/run-contact-demo.sh
+export AGENT_TRADE_REPO="$(pwd)"
+```
+
+contact bridge 的长连接与 WakeTask 生成仍由 `trade-inboxd` 负责；DSH 会话按需取信、回复并确认任务。当前完成的是会话内 pull bridge；`trade-inboxd` 主动启动或恢复 DSH 会话仍登记在 `FUTURE.md`。
 
 ### 结算能力边界
 

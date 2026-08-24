@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
-import Database from 'better-sqlite3';
 import { publicKeyFromSeed } from '@agent-trade/identity';
 import { buildObject, objectId } from '@agent-trade/signed-files';
 
@@ -40,7 +40,7 @@ function trustVectorIdentities(s: Store) {
 }
 
 function countEvents(tradeId: string): number {
-  const db = new Database(indexPath(), { readonly: true });
+  const db = new DatabaseSync(indexPath(), { readOnly: true });
   try {
     const row = db.prepare('SELECT COUNT(*) AS n FROM events WHERE trade_id = ?').get(tradeId) as { n: number };
     return row.n;
@@ -62,6 +62,13 @@ function buyerEvent(tradeId: string, eventType: string, i: number) {
     occurredAt: at('2026-08-22T00:00:00Z', i),
   });
 }
+
+describe('Store lifecycle', () => {
+  it('close is idempotent', () => {
+    store.close();
+    expect(() => store.close()).not.toThrow();
+  });
+});
 
 describe('M3 acceptance 1: putObject rejects files that fail verifyFile', () => {
   it('accepts the valid DEAL and LISTING_REF vectors, returning the declared object_id', () => {

@@ -98,3 +98,18 @@ jobs:
         run: npm test --prefix adapters/email
       - name: GreenMail integration tests
         run: GREENMAIL=1 npm test --prefix adapters/email
+
+  dsh-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci --ignore-scripts --prefix integrations/deepseek-harness/plugin
+      - run: npm test --prefix integrations/deepseek-harness/plugin
+      - name: Pack installable bundle
+        working-directory: packages/dsh-plugin
+        run: |
+          mkdir -p release
+          npm pack --pack-destination release
+          tar -tzf release/*.tgz | grep 'package/runtime/server.mjs'

@@ -15,6 +15,13 @@
 4. 仓库描述统一写：`agent-trade/0.2 — 以模型为主体的开放交易闭环协议参考实现。权威源：protocol/test-vectors/`
 5. 双镜像同步策略：主开发在 GitHub，Gitee 作为镜像（每次发布 `git push gitee main --tags`）。
 
+## DSH bundle 发布
+
+1. 在 `packages/dsh-plugin/package.json` 更新版本。
+2. 运行 `npm test --prefix integrations/deepseek-harness/plugin`；测试会重建并验证 `packages/dsh-plugin`。
+3. 推送 `dsh-v<version>` tag；GitHub Actions 会构建并发布固定文件名 `agent-trade-dsh-plugin.tgz`。
+4. 从 Release URL 安装到一个干净 DSH profile，确认 `--dump-config` 包含 `agent-trade-tools` 与 `agent-trade-skills`，并执行一次 `trade_identity_create`。
+
 ## 发布声明要点
 
 - 协议权威是测试向量，不是任何服务器或仓库；

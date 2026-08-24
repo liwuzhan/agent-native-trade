@@ -14,8 +14,9 @@
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import type { SQLInputValue } from 'node:sqlite';
 
-import Database from 'better-sqlite3';
 import { publicKeyFromSeed } from '@agent-trade/identity';
 import { objectId, verifyFile } from '@agent-trade/signed-files';
 import type { SignedFile, VerifyResult } from '@agent-trade/signed-files';
@@ -144,8 +145,8 @@ function loadPeerRing(peersDir: string, keyRing: Map<string, string>): void {
   }
 }
 
-function openDb(path: string): Database.Database {
-  const db = new Database(path);
+function openDb(path: string): DatabaseSync {
+  const db = new DatabaseSync(path);
   db.exec(`
     CREATE TABLE IF NOT EXISTS events (
       trade_id    TEXT NOT NULL,
@@ -190,6 +191,7 @@ export function openStore(dir: string): Store {
   const resolveKey = (signer: string): string | undefined => keyRing.get(signer);
 
   let db = openDb(indexPath);
+  let closed = false;
 
   const putObjectImpl = (file: SignedFile): string => {
     const result: VerifyResult = verifyFile(file, resolveKey);
@@ -218,7 +220,7 @@ export function openStore(dir: string): Store {
     rebuildIndex(): void {
       // Drop the old handle and the file entirely: rebuilding must produce the
       // same index whether or not index.sqlite was physically deleted (a
-      // stale better-sqlite3 handle would keep writing to an unlinked inode).
+      // stale SQLite handle would keep writing to an unlinked inode).
       db.close();
       rmSync(indexPath, { force: true });
       for (const suffix of ['-journal', '-wal', '-shm']) {
@@ -271,7 +273,15 @@ export function openStore(dir: string): Store {
       //    tampered with) — fail loudly instead of guessing.
       const byTrade = new Map<string, EventRow[]>();
       for (const ev of events) {
-        insertEvent.run(ev);
+        insertEvent.run({
+          trade_id: ev.trade_id,
+          event_id: ev.event_id,
+          object_id: ev.object_id,
+          event_type: ev.event_type,
+          actor: ev.actor,
+          occurred_at: ev.occurred_at,
+          body: ev.body,
+        } satisfies Record<string, SQLInputValue>);
         let list = byTrade.get(ev.trade_id);
         if (list === undefined) {
           list = [];
@@ -287,7 +297,12 @@ export function openStore(dir: string): Store {
           current = next.state;
           preDispute = next.preDispute;
         }
-        upsertTrade.run({ trade_id: tradeId, state: current, pre_dispute_state: preDispute });
+        if (current === undefined) throw new Error(`rebuildIndex: trade ${tradeId} has no events`);
+        upsertTrade.run({
+          trade_id: tradeId,
+          state: current,
+          pre_dispute_state: preDispute,
+        } satisfies Record<string, SQLInputValue>);
       }
     },
 
@@ -376,7 +391,9 @@ export function openStore(dir: string): Store {
     },
 
     close(): void {
+      if (closed) return;
       db.close();
+      closed = true;
     },
   };
 

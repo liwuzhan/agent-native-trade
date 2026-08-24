@@ -17,7 +17,7 @@
 | 目标 | 需要外部账号 | 验收入口 |
 |---|---|---|
 | 协议与本地演示 | 否 | `bash tools/verify-all.sh` |
-| DSH 本地回环 | 需要已安装 DSH，不需要邮箱 | `bash integrations/deepseek-harness/examples/run-contact-demo.sh` |
+| DSH 标准 bundle 本地回环 | 需要已安装 DSH，不需要邮箱 | `dsh --profile <name> --dump-config` + 首次工具调用 |
 | DSH + 真实邮件 | DSH、一个可用 inbox 及其 API Key | `trade-inboxd doctor` + 实际收发 |
 | 发布站/索引站 | 公网部署时需要服务器；本地演示不需要 | `bash apps/station/examples/station-demo.sh` |
 
@@ -34,13 +34,27 @@ git status --short --branch
 command -v dsh || true
 ```
 
-本仓库要求 Node.js 24 或更高版本。只有目标包含 DSH 时才要求 `dsh`。缺少运行时时，告诉人类缺少什么以及安装后如何验证；不要要求人类手工执行后续仓库构建。
+标准 DSH bundle 要求 Node.js 24 或更高版本。只有目标包含 DSH 时才要求 `dsh`。缺少运行时时，告诉人类缺少什么以及安装后如何验证；不要要求人类手工执行后续仓库构建。
 
-部分平台安装 `better-sqlite3` 时需要本机构建工具。若 npm 报 `node-gyp`/编译器错误，模型应先诊断并自行安装或请求对应系统授权：macOS 使用 Xcode Command Line Tools，Linux 通常需要 Python 3、`make` 与 C/C++ 编译器。不要把当前机器缺少构建工具误报为协议或源码失败。
+标准 bundle 使用 Node 内置 SQLite，安装时不需要 `node-gyp` 或 C/C++ 编译器。只有开发发布站/索引站等仍使用原生依赖的源码模块时，才可能需要本机构建工具。
 
-## 4. 从干净克隆构建 DSH 路径
+## 4. 安装 DSH 标准 bundle
 
-本仓库当前是多个独立 npm 包，不要假设根目录一次 `npm install` 会安装全部子包。先安装依赖：
+默认使用预构建 GitHub Release，不克隆仓库、不在安装期执行构建脚本：
+
+```bash
+dsh plugin --profile web add \
+  https://github.com/liwuzhan/agent-native-trade/releases/latest/download/agent-trade-dsh-plugin.tgz
+dsh --profile web --dump-config
+```
+
+若用户使用的不是 `web` profile，模型应先检查已有 profile 并替换名称，不要机械创建重复环境。配置输出必须包含 `agent-trade-tools` 与 `agent-trade-skills`。随后让代理调用 `trade_identity_create`；返回 `ok: true` 才算本地运行时通过。
+
+默认数据位于 DSH home 下的 `agent-trade/`，联系 provider 为 `maildrop`。不需要设置 `AGENT_TRADE_REPO`。
+
+## 5. 从干净克隆构建开发路径
+
+只有修改协议实现、运行旧 buyer/seller preset 或构建发布包时才走本节。本仓库当前是多个独立 npm 包，不要假设根目录一次 `npm install` 会安装全部子包。先安装依赖：
 
 ```bash
 npm ci
@@ -80,9 +94,9 @@ export AGENT_TRADE_REPO="$(pwd)"
 bash integrations/deepseek-harness/examples/run-contact-demo.sh
 ```
 
-## 5. 接入真实 AgentMail
+## 6. 接入真实 AgentMail
 
-### 5.1 先检查，不重复索取
+### 6.1 先检查，不重复索取
 
 ```bash
 test -n "${AGENTMAIL_API_KEY:-}" && echo AGENTMAIL_API_KEY=set || echo AGENTMAIL_API_KEY=missing
@@ -95,7 +109,7 @@ test -n "${AGENT_TRADE_CONTACT_INBOX_ID:-}" && echo inbox=set || echo inbox=miss
 
 未来若邮件服务商允许模型自注册，provider adapter 可以自行完成这一步；协议和 Skills 不需要改变。
 
-### 5.2 让收件队列与 DSH 使用同一路径
+### 6.2 让收件队列与 DSH 使用同一路径
 
 ```bash
 mkdir -p "$HOME/.agent-trade"
@@ -112,7 +126,6 @@ cp apps/trade-inboxd/examples/agentmail.json "$HOME/.agent-trade/inboxd.json"
 在启动 DSH 之前设置：
 
 ```bash
-export AGENT_TRADE_REPO="$(pwd)"
 export AGENT_TRADE_CONTACT_PROVIDER=agentmail
 export AGENT_TRADE_CONTACT_INBOX_ID='the-inbox@example'
 export AGENT_TRADE_WAKE_QUEUE="$HOME/.agent-trade/contact"
@@ -127,7 +140,7 @@ node apps/trade-inboxd/dist/cli.js run --config "$HOME/.agent-trade/inboxd.json"
 
 `trade-inboxd` 负责 WebSocket 和可靠入队；DSH 会话负责 `contact_wake_list → contact_message_get → contact_reply → contact_wake_ack`。当前版本不会在来信后自动创建或恢复 DSH 会话，运行中的代理应在会话开始或收到本地提醒后领取 WakeTask。
 
-## 6. 支付与人类动作
+## 7. 支付与人类动作
 
 协议中的 `DEAL.settlement.method` 是开放字符串。模型应先与对手协商实际可执行的方式，例如商家余额、线下转账、企业财务、担保、到付或其他资产，不要因为缺少某个钱包就停止下单。
 
@@ -140,12 +153,12 @@ V0.2 参考状态机要求 `PAYMENT_CONFIRMED` 后才能进入履约，因此**�
 
 需要人类执行付款、收货、发货或验货时，模型创建自包含的 `HUMAN_TASK`，说明金额/资产、对象、截止时间和必须回传的凭证。只在现实动作发生后记录对应签名事件。
 
-## 7. 完成标准
+## 8. 完成标准
 
 只有同时满足以下条件才向人类报告接入完成：
 
-- 目标模块构建成功；
-- 本地 contact bridge 演示通过；
+- 标准 bundle 安装成功，或开发目标对应模块构建成功；
+- DSH 配置包含工具与 skill，且包内 daemon 的首次工具调用成功；
 - 使用真实邮箱时，`doctor` 通过且 inbox、provider、WakeTask 目录三者一致；
 - DSH 能列出预期工具并读取同一 WakeTask 队列；
 - 人类只承担外部账号、秘密授权或现实动作，没有被要求代替模型执行仓库内可自动完成的步骤；

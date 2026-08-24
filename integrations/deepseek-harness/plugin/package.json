@@ -1,7 +1,7 @@
 {
   "name": "@agent-trade/dsh-integration",
   "version": "0.2.0",
-  "description": "agent-trade/0.2 DSH 集成（模块 M10）：零依赖 Cordis Host 插件（plugin.mjs）+ JSONL daemon 桥 + 23 个交易/联系工具",
+  "description": "Development source and tests for the agent-native trade DeepSeek Harness integration",
   "type": "module",
   "license": "Apache-2.0",
   "private": true,
@@ -10,11 +10,12 @@
   },
   "scripts": {
     "build": "tsc -b",
+    "build:bundle": "node ../../../packages/dsh-plugin/scripts/build-bundle.mjs",
     "typecheck": "tsc -b",
-    "pretest": "tsc -b",
+    "pretest": "npm run build:bundle",
     "test": "vitest run"
   },
-  "dependencies": {
+  "devDependencies": {
     "@agent-trade/bt-catalog": "file:../../../packages/bt-catalog",
     "@agent-trade/contact-agentmail": "file:../../../adapters/contact-agentmail",
     "@agent-trade/contact-core": "file:../../../packages/contact-core",
@@ -23,11 +24,21 @@
     "@agent-trade/identity": "file:../../../packages/identity",
     "@agent-trade/local-store": "file:../../../packages/local-store",
     "@agent-trade/mcp-server": "file:../../../apps/mcp-server",
-    "@agent-trade/signed-files": "file:../../../packages/signed-files"
-  },
-  "devDependencies": {
+    "@agent-trade/settlement": "file:../../../adapters/settlement",
+    "@agent-trade/signed-files": "file:../../../packages/signed-files",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@noble/ed25519": "^3.1.0",
+    "@noble/hashes": "^2.3.0",
     "@types/node": "^24.0.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "bittorrent-tracker": "^11.2.3",
+    "imapflow": "^1.7.2",
+    "mailparser": "^3.9.15",
+    "nodemailer": "^9.0.5",
+    "rolldown": "^1.2.5",
     "typescript": "5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "webtorrent": "^1.9.7"
   }
 }

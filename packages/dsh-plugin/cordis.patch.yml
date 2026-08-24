@@ -1,0 +1,26 @@
+# Install the self-contained trade tools into any DSH profile. Environment
+# variables are optional; the default provider is the local maildrop loopback.
+- insert:
+    - id: agent-trade-tools
+      name: '@agent-trade/dsh-integration'
+      config:
+        tradeDir: !!js "process.env.AGENT_TRADE_DATA_DIR ?? dshHomePath('agent-trade')"
+        agentId: !!js "process.env.AGENT_TRADE_AGENT_ID ?? 'agent'"
+        catalogDir: !!js "process.env.AGENT_TRADE_CATALOG_DIR ?? dshHomePath('agent-trade/catalog')"
+        maildropDir: !!js "process.env.AGENT_TRADE_MAILDROP ?? dshHomePath('agent-trade/maildrop')"
+        mailAddress: !!js "process.env.AGENT_TRADE_MAIL_ADDRESS ?? 'agent@trade.local'"
+        mailPeer: !!js "process.env.AGENT_TRADE_MAIL_PEER ?? ''"
+        wakeQueueDir: !!js "process.env.AGENT_TRADE_WAKE_QUEUE ?? dshHomePath('agent-trade/contact')"
+        contactProvider: !!js "process.env.AGENT_TRADE_CONTACT_PROVIDER ?? 'maildrop'"
+        contactApiKeyEnv: !!js "process.env.AGENT_TRADE_CONTACT_API_KEY_ENV ?? 'AGENTMAIL_API_KEY'"
+        contactInboxId: !!js "process.env.AGENT_TRADE_CONTACT_INBOX_ID ?? ''"
+
+    # A separate provider avoids replacing the profile's ordinary filesystem
+    # skill roots or another plugin's packaged skills.
+    - id: agent-trade-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: agent-trade
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('node_modules/@agent-trade/dsh-integration/skills/', baseUrl))"

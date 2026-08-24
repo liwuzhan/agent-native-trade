@@ -1,15 +1,15 @@
 /**
  * plugin.mjs — agent-trade/0.2 DSH 集成插件（模块 M10 + 联系 bridge）。
  *
- * 零依赖 ESM 静态 Cordis 插件：作为 preset 行加载（`name: './plugin.mjs'`，
- * 行解析规则见 INSPECTION.md 1.2）。职责（薄封装）：
+ * 零运行时依赖 ESM 静态 Cordis 插件。既可由 dsh.bundle 以包名加载，也可
+ * 随旧版 preset 以 `name: './plugin.mjs'` 加载。职责（薄封装）：
  *   - 把 tool-spec.json 的 23 个工具注册到会话作用域（ctx.tools.register）；
  *   - 每个工具 = 参数透传 + 懒启动 JSONL daemon（subprocess stdin pipe）+ 返回裁剪；
  *   - 交易逻辑、密码学、红线校验全部在 daemon（@agent-trade/* 包）内完成。
  *
  * 行 config（全部可选，环境变量兜底）：
- *   repoRoot     仓库根（daemon 入口 = repoRoot/integrations/deepseek-harness/plugin/dist/server.js）
- *                —— 缺省 AGENT_TRADE_REPO，再缺省报配置错误（工具仍注册，调用时返回明确错误）
+ *   repoRoot     兼容旧 preset：若设置，daemon 仍从仓库 dist/server.js 启动；
+ *                标准 bundle 安装无需此字段，直接使用包内 runtime/server.mjs
  *   tradeDir     交易数据根（.data/ 所在），缺省 AGENT_TRADE_DATA_DIR ?? process.cwd()
  *   agentId      默认 actor，缺省 AGENT_TRADE_AGENT_ID ?? 'agent'
  *   catalogDir   目录搜索根，缺省 <tradeDir>/.data/catalog
@@ -25,6 +25,8 @@
  *
  * 生命周期：daemon 懒启动（首次工具调用），ctx dispose 时 terminate；注册随 Fiber 自动移除。
  */
+
+import { fileURLToPath } from 'node:url';
 
 import toolSpec from './tool-spec.json' with { type: 'json' };
 
@@ -78,7 +80,7 @@ export function dshParametersOf(schema) {
 function makeDaemonClient(ctx, config) {
   const subprocess = ctx.get('subprocess');
   const serverJs = config.serverJs;
-  const cwd = config.repoRoot;
+  const cwd = config.runtimeRoot;
   const argvArgs = [
     'serve',
     '--dir', config.tradeDir,
@@ -159,11 +161,6 @@ function makeDaemonClient(ctx, config) {
 
   function ensure() {
     if (disposed) return Promise.reject(new Error('trade tools: plugin disposed'));
-    if (config.repoRoot === '') {
-      return Promise.reject(
-        new Error('trade tools not configured: set row config "repoRoot" (or env AGENT_TRADE_REPO) to the agent-trade-protocol repo root'),
-      );
-    }
     if (subprocess === undefined) {
       return Promise.reject(new Error('trade tools: subprocess service unavailable in this runtime'));
     }
@@ -251,8 +248,13 @@ export function apply(ctx, config = {}) {
   const tools = ctx.get('tools');
   if (tools === undefined) return;
 
+  const packageRoot = fileURLToPath(new URL('.', import.meta.url));
+  const legacyRepoRoot =
+    typeof config.repoRoot === 'string' && config.repoRoot.length > 0
+      ? config.repoRoot
+      : process.env.AGENT_TRADE_REPO ?? '';
   const opts = {
-    repoRoot: typeof config.repoRoot === 'string' && config.repoRoot.length > 0 ? config.repoRoot : process.env.AGENT_TRADE_REPO ?? '',
+    runtimeRoot: legacyRepoRoot || packageRoot,
     tradeDir:
       typeof config.tradeDir === 'string' && config.tradeDir.length > 0
         ? config.tradeDir
@@ -280,7 +282,9 @@ export function apply(ctx, config = {}) {
     nodeBin: typeof config.nodeBin === 'string' && config.nodeBin.length > 0 ? config.nodeBin : 'node',
     toolTimeoutMs: typeof config.toolTimeoutMs === 'number' && config.toolTimeoutMs > 0 ? config.toolTimeoutMs : DEFAULT_TIMEOUT_MS,
   };
-  opts.serverJs = `${opts.repoRoot}/integrations/deepseek-harness/plugin/dist/server.js`;
+  opts.serverJs = legacyRepoRoot
+    ? `${legacyRepoRoot}/integrations/deepseek-harness/plugin/dist/server.js`
+    : fileURLToPath(new URL('./runtime/server.mjs', import.meta.url));
 
   const client = makeDaemonClient(ctx, opts);
 

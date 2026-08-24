@@ -316,7 +316,9 @@ describe('M10 最小链路（DSH 注册之外的全部宿主层逻辑）', () =>
 describe('daemon JSONL 冒烟', () => {
   it('spawn → ready → identity_create → 未知工具错误 → SIGTERM 退出', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'dsh-daemon-'));
-    const serverJs = new URL('../dist/server.js', import.meta.url).pathname;
+    // Exercise the exact prebuilt daemon shipped in the .tgz, not the
+    // monorepo-only TypeScript output.
+    const serverJs = new URL('../../../../packages/dsh-plugin/runtime/server.mjs', import.meta.url).pathname;
     const child = spawn(process.execPath, [serverJs, 'serve', '--dir', dir, '--agent-id', 'demo'], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });

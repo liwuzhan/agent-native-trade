@@ -1,0 +1,29 @@
+name: release-dsh-plugin
+
+on:
+  push:
+    tags:
+      - 'dsh-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci --ignore-scripts --prefix integrations/deepseek-harness/plugin
+      - run: npm test --prefix integrations/deepseek-harness/plugin
+      - name: Build release tarball
+        working-directory: packages/dsh-plugin
+        run: |
+          mkdir -p release
+          npm pack --pack-destination release
+          mv release/*.tgz release/agent-trade-dsh-plugin.tgz
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: packages/dsh-plugin/release/agent-trade-dsh-plugin.tgz
+          generate_release_notes: true

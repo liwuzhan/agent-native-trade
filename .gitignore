@@ -5,3 +5,9 @@ dist/
 inboxd.local.json
 *.log
 .DS_Store
+
+# Generated DSH release payload. The tag workflow rebuilds these before pack.
+packages/dsh-plugin/plugin.mjs
+packages/dsh-plugin/policy.json
+packages/dsh-plugin/tool-spec.json
+packages/dsh-plugin/runtime/

@@ -22,11 +22,9 @@
   },
   "dependencies": {
     "@agent-trade/identity": "file:../identity",
-    "@agent-trade/signed-files": "file:../signed-files",
-    "better-sqlite3": "^13.0.3"
+    "@agent-trade/signed-files": "file:../signed-files"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.0.0",
     "typescript": "5.9.3",
     "vitest": "^4.1.11"
