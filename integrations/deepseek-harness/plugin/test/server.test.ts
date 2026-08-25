@@ -11,11 +11,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildManifest, catalogHash } from '@agent-trade/bt-catalog';
 import { generateIdentity } from '@agent-trade/identity';
-import { addSignature, buildObject } from '@agent-trade/signed-files';
+import { addSignature, buildObject, objectId } from '@agent-trade/signed-files';
 import { uuidv7 } from '@agent-trade/human-task';
 
 import { createDshApp } from '../src/app.js';
@@ -39,6 +39,7 @@ interface Harness {
 const cleanups: Harness[] = [];
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   for (const h of cleanups.splice(0)) {
     try {
       h.app.close();
@@ -50,7 +51,7 @@ afterEach(() => {
 
 function makeHarness(opts: Partial<Parameters<typeof createDshApp>[0]> = {}): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-plugin-'));
-  const app = createDshApp({ dir, agentId: 'agent_buyer', ...opts });
+  const app = createDshApp({ dir, agentId: 'agent_buyer', indexerUrls: [], ...opts });
   const vectors = JSON.parse(readFileSync(new URL('../../../../protocol/test-vectors/vectors.json', import.meta.url), 'utf8')) as {
     identities: Record<string, { public_key: string; seed: string }>;
   };
@@ -111,7 +112,11 @@ function makeReceiptBody(tradeId: string, contractHash: string): Record<string, 
 
 describe('M10 最小链路（DSH 注册之外的全部宿主层逻辑）', () => {
   it('identity → compile → 双方 sign → verify === valid → 事件 → 状态 → 回执 → 广播', async () => {
-    const { dir, app } = makeHarness();
+    const { dir, app } = makeHarness({ indexerUrls: ['https://index.test'] });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ status: 'accepted' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })));
 
     // 身份
     const id = identityCreate({ agentId: 'demo_agent' }, app);
@@ -155,6 +160,8 @@ describe('M10 最小链路（DSH 注册之外的全部宿主层逻辑）', () =>
     const broadcast = await tradeBroadcastReceipt({ object_id: receipt.object_id }, app);
     expect(broadcast.object_id).toBe(receipt.object_id);
     expect(broadcast.magnet_uri).toMatch(/^magnet:\?/);
+    expect(broadcast.a).toEqual([{ u: 'https://index.test', s: 200, ok: true }]);
+    expect(broadcast.status).toBe('announced_and_seeded');
     expect(wrapResult(broadcast).summary.length).toBeLessThan(500);
 
     // 产物证据包落盘
@@ -226,23 +233,90 @@ describe('M10 最小链路（DSH 注册之外的全部宿主层逻辑）', () =>
     writeFileSync(join(catalogDir, 'bolt-m8.listing-ref.json'), JSON.stringify(ref));
 
     // 搜索命中 + object_id 有效
-    const found = catalogSearch({ query: '螺栓', catalog_dir: catalogDir }, app);
+    const found = await catalogSearch({ query: '螺栓', catalog_dir: catalogDir }, app);
     expect(found.matches).toHaveLength(1);
     expect((found.matches as { i: string }[])[0].i).toBe('bolt-m8');
     expect(found.object_id).toMatch(/^sha256:/);
 
     // 取详情（按 object_id 反查 item）
-    const detail = catalogGetItem({ object_id: found.object_id, catalog_dir: catalogDir }, app);
+    const detail = await catalogGetItem({ object_id: found.object_id, catalog_dir: catalogDir }, app);
     expect(detail.item_id).toBe('bolt-m8');
-    expect(detail.listing_ref_valid).toBe(true);
+    expect(detail.listing_ref_verify).toBe('valid');
     expect(detail.catalog_hash).toBe(catalogHash(manifest));
 
     // 不可信数据防线：超大文件被跳过，不炸搜索
     writeFileSync(join(catalogDir, 'huge.json'), Buffer.alloc(64 * 1024, 0x61));
-    const after = catalogSearch({ query: '螺栓', catalog_dir: catalogDir }, app);
+    const after = await catalogSearch({ query: '螺栓', catalog_dir: catalogDir }, app);
     expect(after.matches).toHaveLength(1);
 
     // 摘要硬上限
+    expect(wrapResult(found).summary.length).toBeLessThan(500);
+    expect(wrapResult(detail).summary.length).toBeLessThan(500);
+  });
+
+  it('目录工具：缺省远程 indexer 搜索、卡片验哈希并返回联系方式', async () => {
+    const { app } = makeHarness({ indexerUrls: ['https://index.test'] });
+    const seller = generateIdentity();
+    app.store.saveKey('remote_seller', seller.secretKey);
+    const catalogJson = new TextEncoder().encode(JSON.stringify({
+      catalog_id: 'remote-catalog',
+      item_id: 'repair-1',
+      title: '同城空调维修',
+      description: '上门检查与维修',
+      price: { amount: '100', currency: 'CNY' },
+      contact_refs: [{ type: 'email', uri: 'mailto:seller@example.com', profile: 'agent-trade-email-v1' }],
+      metadata: { tags: ['空调维修', '同城服务'] },
+    }));
+    const manifest = buildManifest([{ path: 'catalog.json', data: catalogJson }]);
+    const hash = catalogHash(manifest);
+    const listing = addSignature(buildObject('LISTING_REF', {
+      publisher: 'remote_seller',
+      catalog_id: 'remote-catalog',
+      catalog_hash: hash,
+      item_id: 'repair-1',
+      distribution_refs: [{ type: 'https', uri: `https://index.test/catalogs/${hash}` }],
+    }), 'remote_seller', seller.secretKey);
+    const card = {
+      catalog_hash: hash,
+      catalog: {
+        manifest,
+        catalog_json: { path: 'catalog.json', content: Buffer.from(catalogJson).toString('base64') },
+      },
+      listing_ref: listing,
+    };
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/catalogs?tag=')) {
+        return new Response(JSON.stringify({ catalogs: [{
+          catalog_hash: hash,
+          tags: ['空调维修', '同城服务'],
+          object_id: objectId(listing),
+          publisher: 'remote_seller',
+          catalog_id: 'remote-catalog',
+          item_id: 'repair-1',
+        }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      if (url.endsWith(`/catalogs/${encodeURIComponent(hash)}/card`)) {
+        return new Response(JSON.stringify(card), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      return new Response(JSON.stringify({ error: 'not_found' }), { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const found = await catalogSearch({ query: '空调维修', limit: 1 }, app);
+    expect(found.sources).toEqual(['https://index.test']);
+    const match = (found.matches as { h: string; i: string }[])[0]!;
+    expect(match).toMatchObject({ h: hash, i: 'repair-1' });
+
+    const detail = await catalogGetItem({ catalog_hash: match.h }, app);
+    expect(detail).toMatchObject({
+      i: 'repair-1',
+      t: '同城空调维修',
+      h: hash,
+      v: 'valid',
+      c: [{ t: 'email', u: 'mailto:seller@example.com' }],
+      x: 'https://index.test',
+    });
     expect(wrapResult(found).summary.length).toBeLessThan(500);
     expect(wrapResult(detail).summary.length).toBeLessThan(500);
   });

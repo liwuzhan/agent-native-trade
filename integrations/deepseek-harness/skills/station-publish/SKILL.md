@@ -18,7 +18,15 @@ description: 用 station 的 publisher 角色发布商品目录并自动通告 i
    npx tsc -b
    ```
 
-2. 一个**运行中的 indexer**，记其基址为 `INDEXER`（示例 `http://127.0.0.1:8787`）。可用 `curl -s $INDEXER/healthz` 确认，期望 `{"ok":true,"role":"indexer","agentId":"..."}`。没有现成 indexer 时见文末「附：快速起一个 indexer」。
+2. 一个**运行中的 indexer**。未配置时先取社区默认值；运营方指定其他站时尊重其配置：
+
+   ```bash
+   INDEXERS="${AGENT_TRADE_INDEXERS:-https://deepcrop.site}"
+   INDEXER="${INDEXERS%%,*}"
+   curl -s "$INDEXER/healthz"
+   ```
+
+   期望返回 `{"ok":true,"role":"indexer","agentId":"..."}`。多个站可全部写入后面的 `announce_to`；没有现成 indexer 时见文末「附：快速起一个 indexer」。
 
 3. 不需要向 indexer 预置发布站种子。首次通告会自动引导公钥；同一 `agent_id` 后续若换成不同公钥会被拒绝。
 
@@ -49,7 +57,7 @@ EOF
 ### 2. 写最小 publisher.yaml
 
 ```bash
-cat > my-publisher.yaml <<'EOF'
+cat > my-publisher.yaml <<EOF
 agent_id: my-publisher
 identity_seed_file: .publisher.seed     # 首次启动自动生成 32 字节种子（0600）
 data_dir: .                             # .data/ 的父目录（不是 .data/ 本身）
@@ -59,7 +67,7 @@ role: publisher
 publisher:
   catalog_dir: ./my-catalog             # 目录内必须有 catalog.json
   trackers: []                          # 单机演示无外部 tracker
-  announce_to: ["http://127.0.0.1:8787"]  # 启动即通告此 indexer（基址）
+  announce_to: ["$INDEXER"]              # 启动即通告此 indexer（基址）
   watch: false
   dht: false                            # 关 DHT，避免挂起
   # 对外部署时填写模型可访问的地址；不要把 0.0.0.0/127.0.0.1 当公网地址广播
@@ -111,7 +119,7 @@ curl -s -X POST http://127.0.0.1:8788/announce
 CATALOG_HASH=$(node -e "console.log(JSON.parse(require('fs').readFileSync('listing-ref.json','utf8')).body.catalog_hash)")
 curl -s "http://127.0.0.1:8788/catalogs/$CATALOG_HASH" > catalog-archive.json
 
-curl -s -X PUT "http://127.0.0.1:8787/catalogs/$CATALOG_HASH" \
+curl -s -X PUT "$INDEXER/catalogs/$CATALOG_HASH" \
   -H 'content-type: application/json' \
   --data-binary @catalog-archive.json
 # 成功 201：{"status":"stored","catalog_hash":"sha256:..."}
@@ -122,7 +130,7 @@ curl -s -X PUT "http://127.0.0.1:8787/catalogs/$CATALOG_HASH" \
 ### 7. 在 indexer 用标签检索验证
 
 ```bash
-curl -s 'http://127.0.0.1:8787/catalogs?tag=示例&tag=标签'
+curl -s "$INDEXER/catalogs?tag=示例&tag=标签"
 ```
 
 期望命中本目录（AND 语义，两个 tag 都要有）：
@@ -172,4 +180,4 @@ EOF
 node dist/cli.js indexer --config my-indexer.yaml
 ```
 
-然后直接起 publisher；首次启动会在 `identity_seed_file` 指定的位置生成该站自己的全新身份，首次完整通告会自动引导公钥。不要把 `protocol/test-vectors/` 中的公开身份用于跨机器试运行，也不要把发布站的种子复制给 indexer。
+本地验证时设置 `export AGENT_TRADE_INDEXERS=http://127.0.0.1:8787`，重新生成 publisher 配置后再启动。首次启动会在 `identity_seed_file` 指定的位置生成该站自己的全新身份，首次完整通告会自动引导公钥。不要把 `protocol/test-vectors/` 中的公开身份用于跨机器试运行，也不要把发布站的种子复制给 indexer。

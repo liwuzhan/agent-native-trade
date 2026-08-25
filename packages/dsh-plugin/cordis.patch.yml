@@ -7,6 +7,7 @@
         tradeDir: !!js "process.env.AGENT_TRADE_DATA_DIR ?? dshHomePath('agent-trade')"
         agentId: !!js "process.env.AGENT_TRADE_AGENT_ID ?? 'agent'"
         catalogDir: !!js "process.env.AGENT_TRADE_CATALOG_DIR ?? dshHomePath('agent-trade/catalog')"
+        indexers: !!js "process.env.AGENT_TRADE_INDEXERS === undefined ? ['https://deepcrop.site'] : process.env.AGENT_TRADE_INDEXERS.split(',').map(x => x.trim()).filter(Boolean)"
         maildropDir: !!js "process.env.AGENT_TRADE_MAILDROP ?? dshHomePath('agent-trade/maildrop')"
         mailAddress: !!js "process.env.AGENT_TRADE_MAIL_ADDRESS ?? 'agent@trade.local'"
         mailPeer: !!js "process.env.AGENT_TRADE_MAIL_PEER ?? ''"

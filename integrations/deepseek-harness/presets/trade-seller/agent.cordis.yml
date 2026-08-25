@@ -87,6 +87,7 @@
     tradeDir: !!js "process.env.AGENT_TRADE_DATA_DIR ?? process.env.HOME + '/.agent-trade/seller'"
     agentId: !!js "process.env.AGENT_TRADE_AGENT_ID ?? 'agent_seller'"
     catalogDir: !!js "process.env.AGENT_TRADE_CATALOG_DIR ?? process.env.HOME + '/.agent-trade/catalog'"
+    indexers: !!js "process.env.AGENT_TRADE_INDEXERS === undefined ? ['https://deepcrop.site'] : process.env.AGENT_TRADE_INDEXERS.split(',').map(x => x.trim()).filter(Boolean)"
     maildropDir: !!js "process.env.AGENT_TRADE_MAILDROP ?? process.env.HOME + '/.agent-trade/maildrop'"
     mailAddress: 'seller@trade.local'
     mailPeer: 'buyer@trade.local'

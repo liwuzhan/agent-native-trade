@@ -5,6 +5,7 @@
  *   --dir <d>           交易数据根（.data/ 所在；同 M9 AGENT_TRADE_DATA_DIR）
  *   --agent-id <id>     默认 actor（缺省 'agent'）
  *   --catalog-dir <d>   目录搜索根（缺省 <dir>/.data/catalog）
+ *   --indexers <csv>    远程 indexer 基址（缺省 https://deepcrop.site；空字符串禁用）
  *   --maildrop <d>      邮件 spool 根（缺省 <dir>/.data/maildrop）
  *   --mail-address <a>  本 daemon 收件地址（缺省 agent@trade.local）
  *   --mail-peer <a>     trade_contact_seller 默认收件方
@@ -30,6 +31,7 @@ import { settlementConfirm, settlementRequest } from '@agent-trade/mcp-server/ha
 import { createDshApp } from './app.js';
 import type { DshApp } from './app.js';
 import { isPlainObject, wrapError, wrapResult } from './contract.js';
+import { parseIndexerUrls } from './indexers.js';
 import type { JsonRpcRequest, JsonRpcResponse } from './contract.js';
 import { catalogGetItem, catalogSearch } from './handlers/catalog.js';
 import { contactMessageGet, contactReply, contactSend, tradeContactSeller } from './handlers/contact.js';
@@ -86,7 +88,7 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   if (argv[0] !== 'serve') {
     process.stderr.write(
-      'usage: server.js serve [--dir <d>] [--agent-id <id>] [--catalog-dir <d>] [--maildrop <d>] [--mail-address <a>] [--mail-peer <a>] [--tracker-port <n>] [--wake-queue <d>] [--contact-provider <agentmail|maildrop>] [--contact-api-key-env <name>] [--contact-inbox-id <id>] [--contact-max-message-bytes <n>]\n',
+      'usage: server.js serve [--dir <d>] [--agent-id <id>] [--catalog-dir <d>] [--indexers <csv>] [--maildrop <d>] [--mail-address <a>] [--mail-peer <a>] [--tracker-port <n>] [--wake-queue <d>] [--contact-provider <agentmail|maildrop>] [--contact-api-key-env <name>] [--contact-inbox-id <id>] [--contact-max-message-bytes <n>]\n',
     );
     process.exit(2);
   }
@@ -103,6 +105,7 @@ async function main(): Promise<void> {
     dir,
     agentId: argOf(argv, '--agent-id'),
     catalogDir: argOf(argv, '--catalog-dir'),
+    indexerUrls: parseIndexerUrls(argOf(argv, '--indexers')),
     maildropDir: argOf(argv, '--maildrop'),
     mailAddress: argOf(argv, '--mail-address'),
     mailPeer: argOf(argv, '--mail-peer'),

@@ -52,6 +52,14 @@ codex plugin marketplace add liwuzhan/agent-native-trade --ref main
 
 插件优先把状态写到宿主提供的 `PLUGIN_DATA`；宿主未把该变量传给 MCP 进程时，回退到 `$HOME/.agent-trade`。默认使用无外网依赖的 `maildrop`。预构建 runtime 已包含 23 个工具，不需要仓库路径、编译器或 npm 安装。若安装后找不到 `node`，只要求人类安装 Node.js 24+ 并验证 `node --version`，然后重新启动 Codex。
 
+目录发现和回执广播默认使用社区索引站 `https://deepcrop.site`。这只是客户端的开箱默认值，不是协议权威；协议核心仍不绑定任何站点。运营方已经指定其他索引站时，在启动 Codex 前设置逗号分隔的基址：
+
+```bash
+export AGENT_TRADE_INDEXERS='https://index-a.example,https://index-b.example'
+```
+
+显式设置为空字符串会禁用远程索引；调用工具时传 `indexer_urls` 可只覆盖本次操作。`catalog_search` 的远程结果中 `h` 是 `catalog_hash`，`s` 是 `sources` 数组下标；随后用二者调用 `catalog_get_item`。只有显式传入 `catalog_dir` 时才进入本地开发目录模式。
+
 ## 5. 安装 DSH 标准 bundle
 
 默认使用预构建 GitHub Release，不克隆仓库、不在安装期执行构建脚本：
@@ -65,6 +73,8 @@ dsh --profile web --dump-config
 若用户使用的不是 `web` profile，模型应先检查已有 profile 并替换名称，不要机械创建重复环境。配置输出必须包含 `agent-trade-tools` 与 `agent-trade-skills`。随后让代理调用 `trade_identity_create`；返回 `ok: true` 才算本地运行时通过。
 
 默认数据位于 DSH home 下的 `agent-trade/`，联系 provider 为 `maildrop`。不需要设置 `AGENT_TRADE_REPO`。
+
+DSH bundle 使用与 Codex 相同的 `AGENT_TRADE_INDEXERS` 规则，未设置时访问 `https://deepcrop.site`。安装后的第一次真实发现验证可以让模型调用 `catalog_search` 检索 `众筹`；这项联网验证与无外网的身份/本地回环验证应分别报告。
 
 ## 6. 从干净克隆构建开发路径
 

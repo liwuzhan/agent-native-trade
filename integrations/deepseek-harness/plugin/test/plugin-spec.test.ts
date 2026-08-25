@@ -40,6 +40,9 @@ describe('dshParametersOf（plugin.mjs 注册层转换）', () => {
       properties: {
         item_id: { type: 'string', description: expect.any(String) },
         object_id: { type: 'string', description: expect.any(String) },
+        catalog_hash: { type: 'string', description: expect.any(String) },
+        indexer_url: { type: 'string', description: expect.any(String) },
+        indexer_urls: { type: 'array', description: expect.any(String), items: { type: 'string' } },
         catalog_dir: { type: 'string', description: expect.any(String) },
       },
     });

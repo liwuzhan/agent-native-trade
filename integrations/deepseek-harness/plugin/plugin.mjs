@@ -13,6 +13,7 @@
  *   tradeDir     交易数据根（.data/ 所在），缺省 AGENT_TRADE_DATA_DIR ?? process.cwd()
  *   agentId      默认 actor，缺省 AGENT_TRADE_AGENT_ID ?? 'agent'
  *   catalogDir   目录搜索根，缺省 <tradeDir>/.data/catalog
+ *   indexers     远程 indexer 基址数组；缺省 AGENT_TRADE_INDEXERS ?? https://deepcrop.site
  *   maildropDir  邮件 spool 根，缺省 <tradeDir>/.data/maildrop
  *   mailAddress  本 daemon 收件地址，缺省 'agent@trade.local'
  *   mailPeer     trade_contact_seller 默认收件方
@@ -87,6 +88,7 @@ function makeDaemonClient(ctx, config) {
     '--agent-id', config.agentId,
   ];
   if (config.catalogDir) argvArgs.push('--catalog-dir', config.catalogDir);
+  argvArgs.push('--indexers', config.indexers.join(','));
   if (config.maildropDir) argvArgs.push('--maildrop', config.maildropDir);
   if (config.mailAddress) argvArgs.push('--mail-address', config.mailAddress);
   if (config.mailPeer) argvArgs.push('--mail-peer', config.mailPeer);
@@ -264,6 +266,11 @@ export function apply(ctx, config = {}) {
         ? config.agentId
         : process.env.AGENT_TRADE_AGENT_ID ?? 'agent',
     catalogDir: typeof config.catalogDir === 'string' && config.catalogDir.length > 0 ? config.catalogDir : undefined,
+    indexers: Array.isArray(config.indexers)
+      ? config.indexers.filter((value) => typeof value === 'string')
+      : (process.env.AGENT_TRADE_INDEXERS === undefined
+          ? ['https://deepcrop.site']
+          : process.env.AGENT_TRADE_INDEXERS.split(',').map((value) => value.trim()).filter((value) => value.length > 0)),
     maildropDir: typeof config.maildropDir === 'string' && config.maildropDir.length > 0 ? config.maildropDir : undefined,
     mailAddress: typeof config.mailAddress === 'string' && config.mailAddress.length > 0 ? config.mailAddress : undefined,
     mailPeer: typeof config.mailPeer === 'string' && config.mailPeer.length > 0 ? config.mailPeer : undefined,

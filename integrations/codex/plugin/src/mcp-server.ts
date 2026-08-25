@@ -15,6 +15,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { createDshApp } from '../../../deepseek-harness/plugin/src/app.js';
 import type { DshApp } from '../../../deepseek-harness/plugin/src/app.js';
 import { wrapResult } from '../../../deepseek-harness/plugin/src/contract.js';
+import { parseIndexerUrls } from '../../../deepseek-harness/plugin/src/indexers.js';
 import { tradeBroadcastReceipt } from '../../../deepseek-harness/plugin/src/handlers/broadcast.js';
 import { catalogGetItem, catalogSearch } from '../../../deepseek-harness/plugin/src/handlers/catalog.js';
 import {
@@ -103,6 +104,7 @@ function createApp(): DshApp {
     dir,
     agentId: process.env.AGENT_TRADE_AGENT_ID,
     catalogDir: process.env.AGENT_TRADE_CATALOG_DIR ?? join(dir, 'catalog'),
+    indexerUrls: parseIndexerUrls(process.env.AGENT_TRADE_INDEXERS),
     maildropDir: process.env.AGENT_TRADE_MAILDROP ?? join(dir, 'maildrop'),
     mailAddress: process.env.AGENT_TRADE_MAIL_ADDRESS,
     mailPeer: process.env.AGENT_TRADE_MAIL_PEER,

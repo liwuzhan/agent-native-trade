@@ -11,7 +11,7 @@ description: 在运行中的 indexer station 上按标签检索商品目录：GE
 
 ## 前置
 
-- 一个运行中的 indexer，基址记 `INDEXER`（示例 `http://127.0.0.1:8787`）。`curl -s $INDEXER/healthz` 应返回 `{"ok":true,"role":"indexer","agentId":"..."}`。
+- 一个运行中的 indexer。未配置时用 `INDEXERS="${AGENT_TRADE_INDEXERS:-https://deepcrop.site}"; INDEXER="${INDEXERS%%,*}"`；多个站逐站查询并按 `catalog_hash` 去重。`curl -s "$INDEXER/healthz"` 应返回 `{"ok":true,"role":"indexer","agentId":"..."}`。
 
 ## 参数
 
@@ -24,7 +24,7 @@ description: 在运行中的 indexer station 上按标签检索商品目录：GE
 1. 发起标签检索：
 
    ```bash
-   curl -s 'http://127.0.0.1:8787/catalogs?tag=示例&tag=标签'
+   curl -s "$INDEXER/catalogs?tag=示例&tag=标签"
    ```
 
 2. 读返回：

@@ -1,9 +1,8 @@
 /**
  * broadcast.ts — trade_broadcast_receipt。
  *
- * 把已签 TRADE_RECEIPT 打包成证据包（receipt.json + canonical manifest）并用
- * bt-catalog 做种（dht 关闭；配置了本地 tracker 时带 announce URL）。返回
- * object_id + magnet URI —— 对方凭 magnet 下载（下载侧接线留给 M8，登记 FUTURE）。
+ * 把已签 TRADE_RECEIPT 提交到配置的 HTTP indexer，同时打包成证据包并用
+ * bt-catalog 做种。HTTP 是默认公开广播路径；本地 tracker 只是可选证据传输。
  *
  * 红线不变：只打包经过验证的 TRADE_RECEIPT；signer 显式给出时用本地私钥增签
  * （多签不破旧签），绝无任意字节签名。
@@ -13,11 +12,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { buildManifest, seed } from '@agent-trade/bt-catalog';
-import { addSignature, objectId } from '@agent-trade/signed-files';
+import { addSignature, objectId, serialize } from '@agent-trade/signed-files';
 import { resolveEnvelope } from '@agent-trade/mcp-server/shared';
 
 import type { DshApp } from '../app.js';
 import { isPlainObject } from '../contract.js';
+import { indexerJson, indexerUrlsFromArgs } from '../indexers.js';
 
 const MAGNET_CAP = 400;
 
@@ -57,6 +57,22 @@ export async function tradeBroadcastReceipt(args: Record<string, unknown>, app: 
   });
   app.seeds.set(id, result.stop);
 
+  // Public discovery is HTTP-first. BT remains an optional evidence transport,
+  // while configured indexers receive the signed receipt directly.
+  const indexers = indexerUrlsFromArgs(args.indexer_urls, app.indexerUrls);
+  const announcements = await Promise.all(indexers.map(async (base): Promise<{ u: string; s: number; ok: boolean }> => {
+    try {
+      const response = await indexerJson(base, 'receipts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: serialize(signed),
+      });
+      return { u: base, s: response.status, ok: response.ok };
+    } catch {
+      return { u: base, s: 0, ok: false };
+    }
+  }));
+
   if (result.magnetURI.length > MAGNET_CAP) {
     throw new Error(`broadcast_receipt: magnet URI too long (${result.magnetURI.length} chars) — internal error`);
   }
@@ -64,8 +80,13 @@ export async function tradeBroadcastReceipt(args: Record<string, unknown>, app: 
     object_id: id,
     magnet_uri: result.magnetURI,
     ...(announce !== undefined ? { tracker: announce } : {}),
+    ...(announcements.length > 0 ? { a: announcements } : {}),
     bundle_files: manifest.files.map((f) => f.path),
-    status: 'seeded',
+    status: announcements.some((entry) => entry.ok)
+      ? 'announced_and_seeded'
+      : announcements.length > 0
+        ? 'seeded_indexer_rejected'
+        : 'seeded',
   };
 }
 

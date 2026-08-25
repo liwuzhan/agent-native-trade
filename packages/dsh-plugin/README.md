@@ -33,6 +33,13 @@ export AGENT_TRADE_AGENT_ID=agent_buyer
 export AGENT_TRADE_DATA_DIR="$HOME/.agent-trade/buyer"
 ```
 
+Catalog discovery and receipt announcements default to the community indexer. Replace or disable that client default before starting DSH when needed:
+
+```sh
+export AGENT_TRADE_INDEXERS='https://deepcrop.site,https://another-indexer.example'
+# export AGENT_TRADE_INDEXERS=''  # disable remote indexers
+```
+
 Secrets belong in the machine's environment or secret store, never in the
 profile patch, model prompt, repository, or trade artifacts.
 

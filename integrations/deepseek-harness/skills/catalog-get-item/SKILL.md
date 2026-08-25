@@ -11,7 +11,7 @@ description: 按 catalog_hash 从 indexer（或 publisher）取单个商品目�
 
 ## 前置
 
-- 一个运行中的 indexer（基址 `INDEXER`，示例 `http://127.0.0.1:8787`）或 publisher。
+- 一个运行中的 indexer 或 publisher。indexer 未指定时用 `INDEXERS="${AGENT_TRADE_INDEXERS:-https://deepcrop.site}"; INDEXER="${INDEXERS%%,*}"`；优先沿用 `catalog-search` 返回结果所在的站。
 - 已知 `catalog_hash`（`sha256:…`，来自 `catalog-search` 结果或 LISTING_REF 的 `body.catalog_hash`）。
 
 ## 参数
@@ -26,7 +26,7 @@ description: 按 catalog_hash 从 indexer（或 publisher）取单个商品目�
 1. 取存档：
 
    ```bash
-   curl -s 'http://127.0.0.1:8787/catalogs/sha256:…' > catalog-archive.json
+   curl -s "$INDEXER/catalogs/sha256:…" > catalog-archive.json
    ```
 
    成功 200；404 返回 `{"error":"catalog_not_found","catalog_hash":"..."}`。

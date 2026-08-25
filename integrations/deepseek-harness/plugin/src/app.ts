@@ -25,6 +25,7 @@ import type { ContactAdapter } from '@agent-trade/contact-core';
 
 import { createContactAdapter } from './contact/provider.js';
 import type { ContactProviderKind } from './contact/provider.js';
+import { normalizeIndexerUrls, parseIndexerUrls } from './indexers.js';
 import { FileMailboxSource, FileSendTransport } from './maildrop.js';
 
 export interface DshAppOptions {
@@ -34,6 +35,8 @@ export interface DshAppOptions {
   agentId?: string;
   /** 目录搜索根（<item_id>.json + <item_id>.listing-ref.json）。 */
   catalogDir?: string;
+  /** 远程发现/回执广播使用的 indexer 基址；缺省社区公共索引站。 */
+  indexerUrls?: string[];
   /** 邮件 spool 根（file-maildrop）；缺省 <dir>/.data/maildrop/。 */
   maildropDir?: string;
   /** 本 daemon 的收件地址（如 buyer@trade.local）。 */
@@ -56,6 +59,7 @@ export interface DshAppOptions {
 
 export interface DshApp extends TradeApp {
   catalogDir: string;
+  indexerUrls: string[];
   mail: MailAdapter;
   humanTasks: HumanTaskStore;
   mailAddress: string;
@@ -121,6 +125,7 @@ export function createDshApp(opts: DshAppOptions): DshApp {
   const app: DshApp = {
     ...base,
     catalogDir: opts.catalogDir ?? join(opts.dir, '.data', 'catalog'),
+    indexerUrls: opts.indexerUrls === undefined ? parseIndexerUrls(undefined) : normalizeIndexerUrls(opts.indexerUrls),
     mail,
     humanTasks: createHumanTaskStore(base.store, { dir: opts.dir }),
     mailAddress,

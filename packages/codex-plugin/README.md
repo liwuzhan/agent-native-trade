@@ -10,6 +10,8 @@ This directory is the installable Codex plugin. It contains:
 
 Users install it through the repository marketplace documented in the root [`README.md`](../../README.md). They do not need this repository's source dependencies or an install-time build.
 
+Remote catalog discovery and receipt announcements default to `https://deepcrop.site`. Set the comma-separated `AGENT_TRADE_INDEXERS` environment variable before Codex starts to replace it; set an explicit empty value to disable remote indexers. The protocol core itself has no public-indexer default.
+
 ## Build and test
 
 From the repository root:
