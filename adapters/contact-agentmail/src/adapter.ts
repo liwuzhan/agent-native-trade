@@ -19,6 +19,7 @@ const DEFAULT_WEBSOCKET_URL = 'wss://ws.agentmail.to/v0';
 const DEFAULT_MAX_MESSAGE_BYTES = 10 * 1024 * 1024;
 const MAX_JSON_OVERHEAD_BYTES = 1024 * 1024;
 const DEFAULT_API_RESPONSE_BYTES = 2 * 1024 * 1024;
+const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/u, '');
@@ -88,6 +89,7 @@ export class AgentMailAdapter implements ContactAdapter {
   private readonly apiBaseUrl: string;
   private readonly websocketUrl: string;
   private readonly maxMessageBytes: number;
+  private readonly connectTimeoutMs: number;
   private readonly fetchImpl: typeof fetch;
   private readonly websocketFactory: WebSocketFactory;
   private readonly watchers = new Set<WatchHandle>();
@@ -102,6 +104,10 @@ export class AgentMailAdapter implements ContactAdapter {
     this.maxMessageBytes = config.maxMessageBytes ?? DEFAULT_MAX_MESSAGE_BYTES;
     if (!Number.isSafeInteger(this.maxMessageBytes) || this.maxMessageBytes <= 0) {
       throw new Error('AgentMail maxMessageBytes must be a positive integer');
+    }
+    this.connectTimeoutMs = config.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
+    if (!Number.isSafeInteger(this.connectTimeoutMs) || this.connectTimeoutMs <= 0) {
+      throw new Error('AgentMail connectTimeoutMs must be a positive integer');
     }
     this.fetchImpl = config.fetch ?? fetch;
     this.websocketFactory = config.websocketFactory ?? defaultWebSocketFactory;
@@ -188,19 +194,38 @@ export class AgentMailAdapter implements ContactAdapter {
       rejectDone = reject;
     });
     let delivery = Promise.resolve();
+    let opened = false;
+
+    // Connect watchdog: a socket that never reaches 'open' (stuck in
+    // CONNECTING — e.g. a silently dropping middlebox) must fail `done` so
+    // the caller's reconnect backoff actually fires.
+    const connectTimer = setTimeout(() => {
+      if (opened || settled) return;
+      settleReject(new Error(`AgentMail WebSocket connect timeout after ${this.connectTimeoutMs}ms`));
+      try {
+        socket.close(1000, 'connect timeout');
+      } catch {
+        // socket already dead — nothing to close
+      }
+    }, this.connectTimeoutMs);
+    connectTimer.unref();
 
     const settleResolve = (): void => {
       if (settled) return;
       settled = true;
+      clearTimeout(connectTimer);
       resolveDone();
     };
     const settleReject = (error: Error): void => {
       if (settled) return;
       settled = true;
+      clearTimeout(connectTimer);
       rejectDone(error);
     };
 
     socket.addEventListener('open', () => {
+      opened = true;
+      clearTimeout(connectTimer);
       socket.send(JSON.stringify({
         type: 'subscribe',
         inboxIds: input.inboxIds,
@@ -233,6 +258,7 @@ export class AgentMailAdapter implements ContactAdapter {
       done,
       close: async () => {
         intentionalClose = true;
+        clearTimeout(connectTimer);
         socket.close(1000, 'closed by client');
         await done.catch(() => undefined);
       },

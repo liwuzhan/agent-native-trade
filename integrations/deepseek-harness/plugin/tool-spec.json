@@ -128,7 +128,7 @@
     },
     {
       "name": "trade_sign_deal",
-      "description": "SIGNING RED LINE: signs a DEAL with a local private key from .data/keys/. Accepts ONLY the deal envelope + expected_body_hash: the body is schema-validated, body_hash is recomputed and must equal expected_body_hash, otherwise signing is refused. The signing decision is the calling model's — there is NO human confirmation step. Optional local policy (policy.json max_amount_per_deal) may refuse over-budget deals. The signed deal is persisted; returns object_id.",
+      "description": "SIGNING RED LINE: signs a DEAL with a local private key from .data/keys/. Accepts ONLY the deal envelope + expected_body_hash: the body is schema-validated, body_hash is recomputed and must equal expected_body_hash, otherwise signing is refused. The signing decision is the calling model's — there is NO human confirmation step. Local policy (policy.json max_amount_per_deal; the shipped default caps deal amounts — override or set null to disable) may refuse over-budget deals. The signed deal is persisted; returns object_id.",
       "parameters": {
         "type": "object",
         "required": ["deal", "expected_body_hash"],

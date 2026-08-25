@@ -71,7 +71,11 @@ export class EmailAdapter implements MailAdapter {
    * 2. attachments larger than maxAttachmentBytes are refused and never
    *    written;
    * 3. already-seen Message-IDs (persisted in seenStorePath) are not
-   *    delivered again.
+   *    delivered again;
+   * 4. a single broken message (download/parse/landing failure) is warned
+   *    about and skipped — it must never wedge the whole poll loop, so the
+   *    seen store still flushes and the remaining messages are delivered.
+   *    The failed message stays unseen and is retried on the next poll.
    */
   async poll(): Promise<InboundMsg[]> {
     const seen = await this.#ensureSeen();
@@ -88,19 +92,24 @@ export class EmailAdapter implements MailAdapter {
         if (seen.has(meta.messageId)) {
           continue;
         }
-        const raw = await this.#source.download(meta.uid);
-        const parsed = await parseRaw(raw);
-        const messageId = parsed.messageId || meta.messageId;
-        const attachments = await this.#landAttachments(parsed.attachments);
-        out.push({
-          tradeId: parsed.tradeId,
-          from: parsed.from,
-          messageId,
-          inReplyTo: parsed.inReplyTo,
-          text: parsed.text,
-          attachments,
-        });
-        seen.add(messageId);
+        try {
+          const raw = await this.#source.download(meta.uid);
+          const parsed = await parseRaw(raw);
+          const messageId = parsed.messageId || meta.messageId;
+          const attachments = await this.#landAttachments(parsed.attachments);
+          out.push({
+            tradeId: parsed.tradeId,
+            from: parsed.from,
+            messageId,
+            inReplyTo: parsed.inReplyTo,
+            text: parsed.text,
+            attachments,
+          });
+          seen.add(messageId);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          this.#warn(`skipping message ${meta.messageId} (will retry next poll): ${reason}`);
+        }
       }
       await seen.save();
       return out;

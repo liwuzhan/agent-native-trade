@@ -55,6 +55,25 @@ describe('parseMailUrl', () => {
     expect(() => parseMailUrl('not a url', 'smtp')).toThrow(/invalid mail URL/);
     expect(() => parseMailUrl('smtp://', 'smtp')).toThrow(/missing host/);
   });
+
+  it('never echoes the password in error messages', () => {
+    const capture = (fn: () => unknown): Error | undefined => {
+      try {
+        fn();
+      } catch (err) {
+        return err instanceof Error ? err : undefined;
+      }
+      return undefined;
+    };
+    const invalid = capture(() => parseMailUrl('smtp://trader:secret@ bad url', 'smtp'));
+    expect(invalid).toBeInstanceOf(Error);
+    expect(invalid?.message).not.toContain('secret');
+    expect(invalid?.message).toContain('trader:***@');
+    const noHost = capture(() => parseMailUrl('imap://trader:secret@/', 'imap'));
+    expect(noHost).toBeInstanceOf(Error);
+    expect(noHost?.message).not.toContain('secret');
+    expect(noHost?.message).toContain('trader:***@');
+  });
 });
 
 describe('deriveFromAddress', () => {

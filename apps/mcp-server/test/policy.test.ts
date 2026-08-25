@@ -96,7 +96,7 @@ describe('M9 signing policy', () => {
     expect(outcome.isError).toBe(false);
   });
 
-  it('defaults to the shipped policy.json (no cap)', async () => {
+  it('defaults to the shipped policy.json cap (over-budget deals are refused out of the box)', async () => {
     const { app, cleanup } = makeApp();
     cleanups.push(cleanup);
     const conn = await connect(app);
@@ -109,7 +109,18 @@ describe('M9 signing policy', () => {
       expected_body_hash: bodyHash,
       signer: 'agent_buyer',
     });
-    expect(outcome.isError).toBe(false);
+    expect(outcome.isError).toBe(true);
+    expect(outcome.text).toContain('max_amount_per_deal');
+
+    // a deal under the shipped cap still signs
+    const okBody = makeDealBody({ settlement: { asset: 'USDC', amount: '420.00', method: 'test-voucher' } });
+    const ok = await compileDraft(conn, okBody);
+    const okOutcome = await callTool(conn.client, 'trade_sign_deal', {
+      deal: ok.envelope,
+      expected_body_hash: ok.bodyHash,
+      signer: 'agent_buyer',
+    });
+    expect(okOutcome.isError).toBe(false);
   });
 
   it('reads a local .data/policy.json override', async () => {

@@ -17,13 +17,18 @@ const DEFAULT_PORTS = {
   imap: { plain: 143, secure: 993 },
 } as const;
 
+/** Redact the password of a mail URL so error messages never echo credentials. */
+function redactUrlCredentials(url: string): string {
+  return url.replace(/(\/\/[^:/@\s]+):[^@/\s]+@/u, '$1:***@');
+}
+
 /** Parse and validate a mail server URL for the expected kind. */
 export function parseMailUrl(url: string, expected: 'smtp' | 'imap'): MailServerUrl {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch (err) {
-    throw new Error(`invalid mail URL: ${url}`, { cause: err });
+    throw new Error(`invalid mail URL: ${redactUrlCredentials(url)}`, { cause: err });
   }
   const proto = parsed.protocol.replace(/:$/, '').toLowerCase();
   const isSmtp = proto === 'smtp' || proto === 'smtps';
@@ -35,7 +40,7 @@ export function parseMailUrl(url: string, expected: 'smtp' | 'imap'): MailServer
     throw new Error(`expected a ${expected}:// URL, got ${parsed.protocol}//`);
   }
   if (!parsed.hostname) {
-    throw new Error(`mail URL missing host: ${url}`);
+    throw new Error(`mail URL missing host: ${redactUrlCredentials(url)}`);
   }
   const kind = isSmtp ? 'smtp' : 'imap';
   const secure = proto.endsWith('s');

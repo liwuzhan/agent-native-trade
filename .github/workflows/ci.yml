@@ -28,9 +28,13 @@ jobs:
             packages/signed-files \
             packages/local-store \
             packages/bt-catalog \
+            packages/contact-core \
             adapters/settlement \
             adapters/human-task \
-            apps/demo-indexer; do
+            adapters/contact-agentmail \
+            apps/demo-indexer \
+            apps/mcp-server \
+            apps/trade-inboxd; do
             npm ci --prefix "$dir"
             npm test --prefix "$dir"
             npm run build --prefix "$dir"

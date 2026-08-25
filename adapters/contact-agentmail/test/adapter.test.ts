@@ -163,6 +163,24 @@ describe('AgentMail WebSocket adapter', () => {
     expect(JSON.stringify(events)).not.toContain('this must not be forwarded');
     await watcher.close();
   });
+
+  it('fails done after connectTimeoutMs when the socket never opens', async () => {
+    const socket = new FakeSocket();
+    const adapter = createAgentMailAdapter({
+      apiKey: 'secret-key',
+      inboxId: 'seller@example.net',
+      connectTimeoutMs: 15,
+      websocketFactory: () => socket,
+    });
+
+    const watcher = await adapter.watch({ inboxIds: ['seller@example.net'] }, async () => {});
+    // no 'open' is ever fired — the socket is stuck in CONNECTING
+    await expect(watcher.done).rejects.toThrow('connect timeout');
+    // the abandoned socket was closed, not leaked
+    expect(socket.closed).toBeDefined();
+    // the failed watcher is unregistered
+    expect(await adapter.close()).toBeUndefined();
+  });
 });
 
 describe('parseAgentMailEvent compatibility', () => {

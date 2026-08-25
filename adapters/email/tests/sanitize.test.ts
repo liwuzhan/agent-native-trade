@@ -56,4 +56,24 @@ describe('sanitizeFilename', () => {
   it('throws for non-string input', () => {
     expect(() => sanitizeFilename(42 as unknown as string)).toThrow(/must be a string/);
   });
+
+  it('truncates over-long names to a bounded byte length, keeping a short extension', () => {
+    const out = sanitizeFilename(`${'x'.repeat(300)}.bin`);
+    expect(Buffer.byteLength(out, 'utf8')).toBeLessThanOrEqual(96);
+    expect(out.endsWith('.bin')).toBe(true);
+    expect(out.length).toBeGreaterThan(4);
+  });
+
+  it('truncates multibyte names without splitting a code point', () => {
+    const out = sanitizeFilename('螺'.repeat(200)); // 600 UTF-8 bytes
+    expect(Buffer.byteLength(out, 'utf8')).toBeLessThanOrEqual(96);
+    // a valid string round-trips: no partial sequence was left behind
+    expect(Buffer.from(out, 'utf8').toString('utf8')).toBe(out);
+    expect([...out].every((ch) => ch === '螺')).toBe(true);
+  });
+
+  it('truncates names with no extension too', () => {
+    const out = sanitizeFilename('a'.repeat(500));
+    expect(Buffer.byteLength(out, 'utf8')).toBeLessThanOrEqual(96);
+  });
 });

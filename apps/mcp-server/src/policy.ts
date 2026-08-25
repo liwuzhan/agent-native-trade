@@ -4,7 +4,8 @@
  *
  *   1. an explicit `policy` option (tests / embedding),
  *   2. `<dir>/.data/policy.json` — local override next to the keyring,
- *   3. the app's shipped `policy.json` (no limits by default).
+ *   3. the app's shipped `policy.json` (a conservative default
+ *      `max_amount_per_deal` cap; set it to `null` locally to disable).
  *
  * A malformed configured value fails fast at load time so a typo surfaces at
  * startup, not mid-trade.

@@ -274,6 +274,48 @@ describe('email adapter — attachment path traversal', () => {
   });
 });
 
+describe('email adapter — hostile-mail robustness', () => {
+  it('skips a message whose download fails and still delivers the rest', async () => {
+    const h = await makeHarness();
+    // uid 1 has no source: FakeMailbox.download throws for it
+    h.mailbox.messages.push({ uid: 1, messageId: '<boom@x>' });
+    h.mailbox.messages.push({
+      uid: 2,
+      messageId: '<ok@x>',
+      source: buildRawMessage({ messageId: '<ok@x>', tradeId: 'T-1', text: 'fine' }),
+    });
+
+    const msgs = await h.adapter.poll();
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].messageId).toBe('<ok@x>');
+    expect(h.warnings.some((w) => w.includes('<boom@x>'))).toBe(true);
+    // the failed message was never marked seen: the next poll retries it
+    // (and fails again with a warning) while the delivered one is skipped
+    expect(await h.adapter.poll()).toHaveLength(0);
+    expect(h.mailbox.downloads).toEqual([1, 2, 1]);
+  });
+
+  it('truncates an over-long attachment filename instead of failing the write', async () => {
+    const h = await makeHarness();
+    h.mailbox.messages.push({
+      uid: 1,
+      messageId: '<long@x>',
+      source: buildRawMessage({
+        messageId: '<long@x>',
+        tradeId: 'T-1',
+        attachments: [{ filename: `${'x'.repeat(300)}.bin`, content: Buffer.from('data') }],
+      }),
+    });
+
+    const msgs = await h.adapter.poll();
+    expect(msgs[0].attachments).toHaveLength(1);
+    const { filename, path } = msgs[0].attachments[0];
+    expect(Buffer.byteLength(filename, 'utf8')).toBeLessThanOrEqual(96);
+    expect(filename.endsWith('.bin')).toBe(true);
+    expect(await readFile(path, 'utf8')).toBe('data');
+  });
+});
+
 describe('email adapter — send', () => {
   it('always attaches X-Trade-Id, optional inReplyTo and attachment bytes', async () => {
     const h = await makeHarness();
