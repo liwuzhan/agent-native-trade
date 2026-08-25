@@ -17,11 +17,12 @@
 | 目标 | 需要外部账号 | 验收入口 |
 |---|---|---|
 | 协议与本地演示 | 否 | `bash tools/verify-all.sh` |
+| Codex 插件本地回环 | 需要已安装 Codex，不需要邮箱 | `/plugins` 显示已安装 + 首次工具调用 |
 | DSH 标准 bundle 本地回环 | 需要已安装 DSH，不需要邮箱 | `dsh --profile <name> --dump-config` + 首次工具调用 |
-| DSH + 真实邮件 | DSH、一个可用 inbox 及其 API Key | `trade-inboxd doctor` + 实际收发 |
+| Codex / DSH + 真实邮件 | 对应客户端、一个可用 inbox 及其 API Key | `trade-inboxd doctor` + 实际收发 |
 | 发布站/索引站 | 公网部署时需要服务器；本地演示不需要 | `bash apps/station/examples/station-demo.sh` |
 
-若用户只说“把它装好”，默认先完成 **DSH 本地回环**；确认通过后，再询问是否接真实邮箱。这样可以把代码故障与账号配置故障分开。
+若用户只说“把它装好”，优先接入模型当前正在使用的客户端：Codex 使用仓库 marketplace，DSH 使用标准 bundle。先完成本地回环；确认通过后，再询问是否接真实邮箱。这样可以把代码故障与账号配置故障分开。
 
 ## 3. 环境检查
 
@@ -32,13 +33,26 @@ node --version
 npm --version
 git status --short --branch
 command -v dsh || true
+command -v codex || true
 ```
 
-标准 DSH bundle 要求 Node.js 24 或更高版本。只有目标包含 DSH 时才要求 `dsh`。缺少运行时时，告诉人类缺少什么以及安装后如何验证；不要要求人类手工执行后续仓库构建。
+Codex 插件和标准 DSH bundle 都要求 Node.js 24 或更高版本。只有目标包含对应客户端时才要求 `codex` 或 `dsh`。缺少运行时时，告诉人类缺少什么以及安装后如何验证；不要要求人类手工执行后续仓库构建。
 
 标准 bundle 使用 Node 内置 SQLite，安装时不需要 `node-gyp` 或 C/C++ 编译器。只有开发发布站/索引站等仍使用原生依赖的源码模块时，才可能需要本机构建工具。
 
-## 4. 安装 DSH 标准 bundle
+## 4. 安装 Codex 插件
+
+使用仓库自带的 Git marketplace；不要克隆仓库，也不要在安装期构建：
+
+```bash
+codex plugin marketplace add liwuzhan/agent-native-trade --ref main
+```
+
+随后在 Codex 中输入 `/plugins`，选择 **Agent Native Trade → Install**。安装后确认 `agent-native-trade` skill 与 `agent-trade` MCP 可见，再调用 `trade_identity_create`。返回 `ok: true` 且包含本地 `agentId` 和公钥，才算本地运行时通过。
+
+插件优先把状态写到宿主提供的 `PLUGIN_DATA`；宿主未把该变量传给 MCP 进程时，回退到 `$HOME/.agent-trade`。默认使用无外网依赖的 `maildrop`。预构建 runtime 已包含 23 个工具，不需要仓库路径、编译器或 npm 安装。若安装后找不到 `node`，只要求人类安装 Node.js 24+ 并验证 `node --version`，然后重新启动 Codex。
+
+## 5. 安装 DSH 标准 bundle
 
 默认使用预构建 GitHub Release，不克隆仓库、不在安装期执行构建脚本：
 
@@ -52,7 +66,7 @@ dsh --profile web --dump-config
 
 默认数据位于 DSH home 下的 `agent-trade/`，联系 provider 为 `maildrop`。不需要设置 `AGENT_TRADE_REPO`。
 
-## 5. 从干净克隆构建开发路径
+## 6. 从干净克隆构建开发路径
 
 只有修改协议实现、运行旧 buyer/seller preset 或构建发布包时才走本节。本仓库当前是多个独立 npm 包，不要假设根目录一次 `npm install` 会安装全部子包。先安装依赖：
 
@@ -94,9 +108,9 @@ export AGENT_TRADE_REPO="$(pwd)"
 bash integrations/deepseek-harness/examples/run-contact-demo.sh
 ```
 
-## 6. 接入真实 AgentMail
+## 7. 接入真实 AgentMail
 
-### 6.1 先检查，不重复索取
+### 7.1 先检查，不重复索取
 
 ```bash
 test -n "${AGENTMAIL_API_KEY:-}" && echo AGENTMAIL_API_KEY=set || echo AGENTMAIL_API_KEY=missing
@@ -105,11 +119,11 @@ test -n "${AGENT_TRADE_CONTACT_INBOX_ID:-}" && echo inbox=set || echo inbox=miss
 
 若缺少，要求人类完成一次外部账号操作，但不要让其在对话中发送秘密。可以这样说明：
 
-> 请创建或选择一个能通过 API 收发信的 AgentMail inbox。在运行 DSH 的同一台机器上设置 `AGENTMAIL_API_KEY`，并把 inbox 地址设置为 `AGENT_TRADE_CONTACT_INBOX_ID`。API Key 不要发给我；设置完成后只回复“已设置”，我会运行 doctor 验证。
+> 请创建或选择一个能通过 API 收发信的 AgentMail inbox。在运行代理客户端的同一台机器上设置 `AGENTMAIL_API_KEY`，并把 inbox 地址设置为 `AGENT_TRADE_CONTACT_INBOX_ID`。API Key 不要发给我；设置完成后只回复“已设置”，我会运行 doctor 验证。
 
 未来若邮件服务商允许模型自注册，provider adapter 可以自行完成这一步；协议和 Skills 不需要改变。
 
-### 6.2 让收件队列与 DSH 使用同一路径
+### 7.2 让收件队列与运行时使用同一路径
 
 ```bash
 mkdir -p "$HOME/.agent-trade"
@@ -121,13 +135,14 @@ cp apps/trade-inboxd/examples/agentmail.json "$HOME/.agent-trade/inboxd.json"
 - `inboxId` = `AGENT_TRADE_CONTACT_INBOX_ID` 的值；
 - `dataDir` = `contact`。
 
-因为相对路径按配置文件所在目录解析，上述设置最终得到 `$HOME/.agent-trade/contact`，与 DSH preset 默认的 WakeTask 队列一致。
+因为相对路径按配置文件所在目录解析，上述设置最终得到 `$HOME/.agent-trade/contact`。Codex 或 DSH runtime 必须指向同一个 WakeTask 队列。
 
-在启动 DSH 之前设置：
+在启动或重启 Codex / DSH 之前设置：
 
 ```bash
 export AGENT_TRADE_CONTACT_PROVIDER=agentmail
 export AGENT_TRADE_CONTACT_INBOX_ID='the-inbox@example'
+export AGENT_TRADE_DATA_DIR="$HOME/.agent-trade"
 export AGENT_TRADE_WAKE_QUEUE="$HOME/.agent-trade/contact"
 ```
 
@@ -138,9 +153,9 @@ node apps/trade-inboxd/dist/cli.js doctor --config "$HOME/.agent-trade/inboxd.js
 node apps/trade-inboxd/dist/cli.js run --config "$HOME/.agent-trade/inboxd.json"
 ```
 
-`trade-inboxd` 负责 WebSocket 和可靠入队；DSH 会话负责 `contact_wake_list → contact_message_get → contact_reply → contact_wake_ack`。当前版本不会在来信后自动创建或恢复 DSH 会话，运行中的代理应在会话开始或收到本地提醒后领取 WakeTask。
+`trade-inboxd` 负责 WebSocket 和可靠入队；Codex / DSH 会话负责 `contact_wake_list → contact_message_get → contact_reply → contact_wake_ack`。当前版本不会在来信后自动创建或恢复模型会话，运行中的代理应在会话开始或收到本地提醒后领取 WakeTask。只安装 Codex 插件不会常驻启动 `trade-inboxd`；真实收件场景仍需从源码构建并运行它。
 
-## 7. 支付与人类动作
+## 8. 支付与人类动作
 
 协议中的 `DEAL.settlement.method` 是开放字符串。模型应先与对手协商实际可执行的方式，例如商家余额、线下转账、企业财务、担保、到付或其他资产，不要因为缺少某个钱包就停止下单。
 
@@ -153,13 +168,14 @@ V0.2 参考状态机要求 `PAYMENT_CONFIRMED` 后才能进入履约，因此**�
 
 需要人类执行付款、收货、发货或验货时，模型创建自包含的 `HUMAN_TASK`，说明金额/资产、对象、截止时间和必须回传的凭证。只在现实动作发生后记录对应签名事件。
 
-## 8. 完成标准
+## 9. 完成标准
 
-只有同时满足以下条件才向人类报告接入完成：
+只有目标对应的条件全部满足时，才向人类报告接入完成：
 
-- 标准 bundle 安装成功，或开发目标对应模块构建成功；
+- Codex 插件、DSH 标准 bundle 安装成功，或开发目标对应模块构建成功；
+- 若目标是 Codex：插件已安装、skill 与 MCP 可见，且首次工具调用成功；
 - DSH 配置包含工具与 skill，且包内 daemon 的首次工具调用成功；
 - 使用真实邮箱时，`doctor` 通过且 inbox、provider、WakeTask 目录三者一致；
-- DSH 能列出预期工具并读取同一 WakeTask 队列；
+- 当前客户端能列出预期工具并读取同一 WakeTask 队列；
 - 人类只承担外部账号、秘密授权或现实动作，没有被要求代替模型执行仓库内可自动完成的步骤；
 - 未把尚未支持的自动唤醒、真实钱包或货到付款完整状态链描述为已完成。

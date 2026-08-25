@@ -1,0 +1,7 @@
+interface:
+  display_name: "Agent Native Trade"
+  short_description: "Discover, negotiate, and complete agent-native trades"
+  default_prompt: "Use $agent-native-trade to find a good or service and carry the trade through contact, agreement, fulfillment, and receipt."
+
+policy:
+  allow_implicit_invocation: true

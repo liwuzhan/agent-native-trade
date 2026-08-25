@@ -1,0 +1,9 @@
+{
+  "agent-trade": {
+    "command": "node",
+    "args": [
+      "-e",
+      "const crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),url=require('node:url'),zlib=require('node:zlib');const base=path.join(process.env.CODEX_HOME||path.join(os.homedir(),'.codex'),'plugins','cache','agent-native-trade','agent-native-trade');const packs=fs.readdirSync(base,{withFileTypes:true}).filter((entry)=>entry.isDirectory()).map((entry)=>path.join(base,entry.name,'runtime','mcp-server.mjs.br')).filter((file)=>fs.existsSync(file)).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs);if(packs.length===0)throw new Error('Agent Native Trade runtime not found under '+base);const packed=packs[0],pluginRoot=path.dirname(path.dirname(packed)),bytes=fs.readFileSync(packed),hash=crypto.createHash('sha256').update(bytes).digest('hex').slice(0,16),cacheRoot=process.env.AGENT_TRADE_RUNTIME_CACHE||path.join(os.tmpdir(),'agent-native-trade-codex-runtime',hash),runtimeDir=path.join(cacheRoot,'runtime'),runtime=path.join(runtimeDir,'mcp-server.mjs');if(!fs.existsSync(runtime)){fs.mkdirSync(runtimeDir,{recursive:true});fs.writeFileSync(runtime,zlib.brotliDecompressSync(bytes),{mode:0o600});fs.cpSync(path.join(pluginRoot,'runtime','schemas'),path.join(runtimeDir,'schemas'),{recursive:true});fs.copyFileSync(path.join(pluginRoot,'policy.json'),path.join(cacheRoot,'policy.json'));}import(url.pathToFileURL(runtime).href).catch((error)=>{console.error(error);process.exit(1);});"
+    ]
+  }
+}

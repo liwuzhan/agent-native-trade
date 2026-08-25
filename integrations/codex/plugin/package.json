@@ -1,0 +1,43 @@
+{
+  "name": "@agent-trade/codex-plugin-build",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node ../../../packages/codex-plugin/scripts/build-bundle.mjs",
+    "pretest": "npm run build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@agent-trade/bt-catalog": "file:../../../packages/bt-catalog",
+    "@agent-trade/contact-agentmail": "file:../../../adapters/contact-agentmail",
+    "@agent-trade/contact-core": "file:../../../packages/contact-core",
+    "@agent-trade/email": "file:../../../adapters/email",
+    "@agent-trade/human-task": "file:../../../adapters/human-task",
+    "@agent-trade/identity": "file:../../../packages/identity",
+    "@agent-trade/local-store": "file:../../../packages/local-store",
+    "@agent-trade/mcp-server": "file:../../../apps/mcp-server",
+    "@agent-trade/settlement": "file:../../../adapters/settlement",
+    "@agent-trade/signed-files": "file:../../../packages/signed-files",
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@noble/ed25519": "^3.1.0",
+    "@noble/hashes": "^2.3.0",
+    "@types/node": "^24.0.0",
+    "@types/webtorrent": "0.109.8",
+    "ajv": "8.17.1",
+    "ajv-formats": "^3.0.1",
+    "bencode": "4.0.0",
+    "bittorrent-tracker": "^11.2.3",
+    "imapflow": "^1.7.2",
+    "mailparser": "^3.9.15",
+    "nodemailer": "^9.0.5",
+    "rolldown": "^1.2.5",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11",
+    "webtorrent": "^1.9.7"
+  }
+}

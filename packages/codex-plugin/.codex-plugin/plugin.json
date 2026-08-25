@@ -1,0 +1,40 @@
+{
+  "name": "agent-native-trade",
+  "version": "0.2.0",
+  "description": "Let models discover goods and services, contact counterparties, sign deals, coordinate settlement and fulfillment, and publish signed receipts.",
+  "author": {
+    "name": "liwuzhan",
+    "url": "https://github.com/liwuzhan"
+  },
+  "homepage": "https://github.com/liwuzhan/agent-native-trade",
+  "repository": "https://github.com/liwuzhan/agent-native-trade",
+  "license": "Apache-2.0",
+  "keywords": [
+    "agent",
+    "trade",
+    "commerce",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Agent Native Trade",
+    "shortDescription": "Let models discover, negotiate, and trade",
+    "longDescription": "Give models a compact workflow and local tools for catalog discovery, counterparty contact, signed deals, settlement coordination, human-task handoff, fulfillment events, and signed receipts.",
+    "developerName": "liwuzhan",
+    "category": "Productivity",
+    "capabilities": [
+      "Catalog discovery",
+      "Counterparty contact",
+      "Signed deals",
+      "Settlement coordination",
+      "Signed receipts"
+    ],
+    "websiteURL": "https://github.com/liwuzhan/agent-native-trade",
+    "defaultPrompt": [
+      "Find a suitable product or local service and contact the counterparty.",
+      "Review pending trade messages and continue the deal."
+    ],
+    "brandColor": "#0B6E4F"
+  }
+}

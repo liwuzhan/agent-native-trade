@@ -14,8 +14,32 @@
 
 以模型为主体的开放交易闭环协议 · 参考实现（Apache-2.0）。
 
+## 安装
+
+### Codex
+
+把本仓库加入 Codex 的插件来源：
+
+```bash
+codex plugin marketplace add liwuzhan/agent-native-trade --ref main
+```
+
+然后在 Codex 中输入 `/plugins`，选择 **Agent Native Trade → Install**。插件内含紧凑的交易工作流 skill 和预构建的本地 MCP runtime；安装后即可使用目录发现、联系、合同、结算协调、人类任务、履约事件和回执等 23 个工具，不需要克隆仓库或在安装时编译。
+
+运行时要求 Node.js 24 或更高版本。默认 `maildrop` 是无账号、无外网依赖的本地回环；接真实邮箱时才需要在运行 Codex 的机器上设置对应 provider 的账号和环境变量。密钥不应粘贴进对话。持续收件与主动唤醒仍由 `trade-inboxd` 承担，详见 [`AGENT_SETUP.md`](AGENT_SETUP.md)。
+
+### DeepSeek Harness
+
+```bash
+dsh plugin --profile web add \
+  https://github.com/liwuzhan/agent-native-trade/releases/latest/download/agent-trade-dsh-plugin.tgz
+```
+
+详细配置、验证与真实邮件接入见 [`AGENT_SETUP.md`](AGENT_SETUP.md)。
+
 **入口文档**：
 - [`AGENT_SETUP.md`](AGENT_SETUP.md) — 给模型的接入说明：模型自行安装、配置和验证，只向人类索取不可自动取得的账号/授权
+- [`packages/codex-plugin/`](packages/codex-plugin/) — Codex 插件：skill、23 工具本地 MCP runtime 与仓库 marketplace
 - [`packages/dsh-plugin/`](packages/dsh-plugin/) — 可由 `dsh plugin` 安装的标准 DSH bundle
 - [`protocol/specification.md`](protocol/specification.md) — 仓库内协议规范；冲突处以 Schema 与测试向量为准
 - [`docs/agent-contact-runtime-email-selection-v0.1.md`](docs/agent-contact-runtime-email-selection-v0.1.md) — 联系方式、邮件服务、NAT 收件自触发与开箱安装选型（面向 2026-09）
@@ -29,12 +53,12 @@
 ```text
 Publisher / Integrator → Catalog + contact_refs → Indexer → Buyer
                                                         │
-Buyer / Seller ← DSH contact bridge ← WakeTask queue ← trade-inboxd ← Email
+Buyer / Seller ← Client bridge (Codex / DSH) ← WakeTask queue ← trade-inboxd ← Email
       │
       └→ DEAL 双签 → Settlement / HumanTask → TRADE_RECEIPT → Indexer
 ```
 
-这里保持三个边界：协议对象不依赖客户端；`trade-inboxd` 负责长连接和可靠入队；DSH 只在需要时读取正文、回复并确认 WakeTask。邮件正文和附件始终是不可信数据。
+这里保持三个边界：协议对象不依赖客户端；`trade-inboxd` 负责长连接和可靠入队；Codex、DSH 等客户端只在需要时读取正文、回复并确认 WakeTask。邮件正文和附件始终是不可信数据。
 
 ### 公共演示索引站
 
@@ -52,7 +76,7 @@ node tools/verify-test-vectors.mjs       # 用 node:crypto 验证全部向量
 bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实现）
 ```
 
-## 模块状态（2026-08-24）
+## 模块状态（2026-08-25）
 
 | 模块 | 状态 | 测试 |
 |---|---|---|
@@ -67,6 +91,7 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | M8 demo-indexer | ✅ | 30/30 |
 | M9 mcp-server | ✅ | 28/28（含 stdio 冒烟 + 12 红线） |
 | M10 DSH 集成 | ✅ | 28/28 单测 + 最小链路 9 步演示 + contact bridge 6 步演示 + 双 preset 挂载校验 + 会话内往返 |
+| Codex 插件 | ✅ 首批实现 | Git-backed marketplace + 紧凑 skill + 23 工具预构建 MCP；真实 stdio 握手、工具枚举与身份创建测试 |
 | M11 棉花娃娃端到端 | ✅ | 106 断言全绿（run-demo.sh） |
 | Contact core | ✅ 首批实现 | 10/10（联系解析 + WakeTask + 文件队列） |
 | AgentMail contact adapter | ✅ 首批实现 | 7/7（REST + 响应限额 + WebSocket 兼容包络） |
