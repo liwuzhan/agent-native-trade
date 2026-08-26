@@ -52,7 +52,7 @@ cd packages/dsh-plugin
 mkdir -p release
 npm pack --pack-destination release
 dsh plugin --profile agent-trade-smoke add \
-  ./release/agent-trade-dsh-integration-0.2.0.tgz
+  ./release/agent-trade-dsh-integration-0.2.1.tgz
 dsh --profile agent-trade-smoke --dump-config
 ```
 

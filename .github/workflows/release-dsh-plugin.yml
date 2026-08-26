@@ -7,7 +7,7 @@ on:
     tags:
       - 'dsh-v*'
     paths:
-      - '.github/release-markers/dsh-v0.2.0'
+      - '.github/release-markers/dsh-v0.2.1'
 
 permissions:
   contents: write
@@ -29,7 +29,7 @@ jobs:
           mv release/*.tgz release/agent-trade-dsh-plugin.tgz
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'dsh-v0.2.0' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'dsh-v0.2.1' }}
           target_commitish: ${{ github.sha }}
           files: packages/dsh-plugin/release/agent-trade-dsh-plugin.tgz
           generate_release_notes: true

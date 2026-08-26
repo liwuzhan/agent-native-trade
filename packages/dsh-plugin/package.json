@@ -1,6 +1,6 @@
 {
   "name": "@agent-trade/dsh-integration",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DeepSeek Harness bundle for agent-native catalog, contact, deal, receipt, settlement, and human-task workflows",
   "type": "module",
   "license": "Apache-2.0",
