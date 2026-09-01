@@ -7,7 +7,7 @@ on:
     tags:
       - 'dsh-v*'
     paths:
-      - '.github/release-markers/dsh-v0.2.1'
+      - '.github/release-markers/dsh-v0.2.2'
 
 permissions:
   contents: write
@@ -21,6 +21,8 @@ jobs:
         with: { node-version: 24 }
       - run: npm ci --ignore-scripts --prefix integrations/deepseek-harness/plugin
       - run: npm test --prefix integrations/deepseek-harness/plugin
+      - name: Build self-contained DSH bundle
+        run: node packages/dsh-plugin/scripts/build-bundle.mjs
       - name: Build release tarball
         working-directory: packages/dsh-plugin
         run: |
@@ -29,7 +31,7 @@ jobs:
           mv release/*.tgz release/agent-trade-dsh-plugin.tgz
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'dsh-v0.2.1' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'dsh-v0.2.2' }}
           target_commitish: ${{ github.sha }}
           files: packages/dsh-plugin/release/agent-trade-dsh-plugin.tgz
           generate_release_notes: true
