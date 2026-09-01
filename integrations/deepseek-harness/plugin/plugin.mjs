@@ -24,7 +24,17 @@
  *   nodeBin      node 可执行文件，缺省 'node'
  *   toolTimeoutMs 单次工具调用超时（缺省 60000）；超时/中止会 terminate daemon 并要求下次重建
  *
- * 生命周期：daemon 懒启动（首次工具调用），ctx dispose 时 terminate；注册随 Fiber 自动移除。
+ * 生命周期：daemon 懒启动（首次工具调用），插件 fiber 停止时经
+ * ctx.effect 返回的 disposer terminate；注册随 Fiber 自动移除。
+ *
+ * DSH 0.1.2 契约（2026-09 复核，不再兼容 0.1.1）：
+ *   - tools 服务的提供时机晚于 profile bundle 的 apply：必须经 inject
+ *     ['tools', 'subprocess'] 等待就绪；ctx.get('tools') 在 apply 当下
+ *     为 undefined，旧写法会静默跳过全部工具（无任何报错）。
+ *   - cordis 4 不再发 'dispose' 事件：清理走 ctx.effect(fn 返回 disposer)。
+ *   - SubprocessSpawnSpec.argv/cwd/stdio/graceMs、SubprocessHandle.done/
+ *     stdin/terminate、output.render(args, value)、execute(args, exec) 均
+ *     按 0.1.2 契约使用（详见 INSPECTION.md）。
  */
 
 import { fileURLToPath } from 'node:url';
@@ -76,10 +86,9 @@ export function dshParametersOf(schema) {
 
 /**
  * JSONL daemon 客户端：懒 spawn + 行协议 + 超时/中止语义。
- * 只依赖 subprocess Service 与 Node 流对象的方法调用，不引入任何 npm 依赖。
+ * 只依赖已注入的 subprocess 实例与 Node 流对象的方法调用，不引入任何 npm 依赖。
  */
-function makeDaemonClient(ctx, config) {
-  const subprocess = ctx.get('subprocess');
+function makeDaemonClient(subprocess, config) {
   const serverJs = config.serverJs;
   const cwd = config.runtimeRoot;
   const argvArgs = [
@@ -163,9 +172,6 @@ function makeDaemonClient(ctx, config) {
 
   function ensure() {
     if (disposed) return Promise.reject(new Error('trade tools: plugin disposed'));
-    if (subprocess === undefined) {
-      return Promise.reject(new Error('trade tools: subprocess service unavailable in this runtime'));
-    }
     if (handle !== null && readyPromise !== null) return readyPromise;
 
     const handleNow = subprocess.spawn({
@@ -246,9 +252,15 @@ function makeDaemonClient(ctx, config) {
   };
 }
 
+// DSH 0.1.2 起 tools 服务晚于 profile bundle 的 apply 时机提供：
+// 必须声明 inject 等服务就绪后再注册工具；ctx.get('tools') 在 apply 当下
+// 拿到 undefined 会静默跳过全部 23 个工具（CAD 插件即用 inject 存活）。
+// subprocess 同为硬依赖：没有它 23 个工具无一可用，宁可等待服务也不静默挂空。
+export const inject = ['tools', 'subprocess'];
+
 export function apply(ctx, config = {}) {
-  const tools = ctx.get('tools');
-  if (tools === undefined) return;
+  const tools = ctx.tools;
+  const subprocess = ctx.subprocess;
 
   const packageRoot = fileURLToPath(new URL('.', import.meta.url));
   const legacyRepoRoot =
@@ -293,25 +305,29 @@ export function apply(ctx, config = {}) {
     ? `${legacyRepoRoot}/integrations/deepseek-harness/plugin/dist/server.js`
     : fileURLToPath(new URL('./runtime/server.mjs', import.meta.url));
 
-  const client = makeDaemonClient(ctx, opts);
+  const client = makeDaemonClient(subprocess, opts);
 
-  for (const tool of toolSpec.tools) {
-    tools.register({
-      name: tool.name,
-      description: tool.description,
-      parameters: dshParametersOf(tool.parameters),
-      output: {
-        schema: OUTPUT_SCHEMA,
-        render: (_args, value) => [
-          { type: 'text', text: typeof value.summary === 'string' ? value.summary : String(value ?? '') },
-        ],
-      },
-      async execute(args, exec) {
-        const signal = exec && exec.signal && typeof exec.signal.addEventListener === 'function' ? exec.signal : null;
-        return client.call(tool.name, args, signal, opts.toolTimeoutMs);
-      },
-    });
-  }
-
-  ctx.on('dispose', () => client.dispose());
+  // 注册 + daemon 生命周期都挂在同一个 effect 上：cordis 4 停止该 fiber 时
+  // 逆序运行返回的 disposer，terminate 懒启动的 daemon（旧版 ctx.on('dispose')
+  // 在 0.1.2 的 cordis 4 中已不再发出，等于是死代码）。
+  ctx.effect(() => {
+    for (const tool of toolSpec.tools) {
+      tools.register({
+        name: tool.name,
+        description: tool.description,
+        parameters: dshParametersOf(tool.parameters),
+        output: {
+          schema: OUTPUT_SCHEMA,
+          render: (_args, value) => [
+            { type: 'text', text: typeof value.summary === 'string' ? value.summary : String(value ?? '') },
+          ],
+        },
+        async execute(args, exec) {
+          const signal = exec && exec.signal && typeof exec.signal.addEventListener === 'function' ? exec.signal : null;
+          return client.call(tool.name, args, signal, opts.toolTimeoutMs);
+        },
+      });
+    }
+    return () => client.dispose();
+  });
 }

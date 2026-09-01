@@ -197,3 +197,33 @@ export function apply(ctx, config = {}) {  // config 来自行的 config 字段
 | 2026-08-23 | 同上 | A2 核对 | cordis_* 工具名/参数与打包文档一致（本会话实际调用） |
 | 2026-08-23 | 同上 | preset 挂载校验（standingKeyFor） | `trade-buyer` / `trade-seller` 均 mounted OK（真实组合含 plugin.mjs 行 + skills 行） |
 | 2026-08-23 | 同上 | 会话内往返探针（dshtrd v1/v2） | v1 用 `ctx.clearTimeout` + 流回调未兜底 → **宿主进程崩溃一次**（教训写入 D11）；v2（无 clearTimeout、全 try/catch）复跑通过 |
+
+---
+
+## 第五部分：DSH 0.1.2 破坏性变更适配（2026-09-01，0.1.2-alpha.3 实测）
+
+**现象**：升级 0.1.2 后 23 个 `trade_*` 工具在运行时**全部静默消失**（skill 层正常），启动日志零报错；CAD 插件（`dsh-cad-tools`）不受影响。
+
+**根因**：两处 0.1.1 行为在 0.1.2 失效，且旧代码路径恰好都是静默路径：
+
+| # | 0.1.1 行为（旧代码） | 0.1.2 行为（实测） | 后果 | 修复 |
+| --- | --- | --- | --- | --- |
+| 1 | `ctx.get('tools')` 在 bundle apply 当下可取到 | `tools` 服务提供时机**晚于** profile bundle 的 apply；`ctx.get` 当下返回 `undefined` | `if (tools === undefined) return` 静默跳过全部工具注册，无任何报错 | 声明 `inject: ['tools', 'subprocess']`，等依赖就绪后再激活（CAD 即此模式，故存活） |
+| 2 | `ctx.on('dispose', ...)` 在插件停止时触发 | cordis 4 不再发出 `'dispose'` 事件；唯一卸载通知是 `internal/plugin`（面向**其他** fiber 的观察者） | daemon 清理回调从未执行（死代码；进程退出兜底才不泄漏） | 清理改走 `ctx.effect(() => { ...; return disposer })`：fiber 停止时逆序运行返回的 disposer |
+
+**0.1.2 复核仍一致（无需改动）的契约**（证据：`dsh-tools`/`dsh-tool-cordis` 0.1.2-alpha.3 安装目录实读 + headless 真机往返）：
+
+- `SubprocessSpawnSpec`：`argv` / `cwd` / `stdio`（`stdin: 'pipe'`）/ `graceMs` —— 与旧用法逐字段一致；
+- `SubprocessHandle`：`stdin` / `stdout` / `stderr` / `done: Promise<SubprocessOutcome>` / `terminate()` —— 一致；
+- `defineTool` 编译契约：`output.render(args, value)`、`execute(args, exec)`、`exec.signal`（AbortSignal，可选）—— 一致；
+- `tools.register(definition)` 返回 disposer 且随调用 fiber 自动移除 —— 一致；
+- 静态注册不经 `defineTool` 归一化，参数必须自带根级 `type: 'object'`（`dshParametersOf` 已产出该形态，红线不变）。
+
+**验收证据**（2026-09-01）：
+
+1. `Tool.listTools`（web 会话）：CAD 17 工具在列，`trade_*` 为 0 —— 确认工具层失效而非常见注册错误；
+2. headless profile 干净安装 + 一次性会话：修复前模型回答 `NO, NONE`（启动日志零报错）；修复后 23 工具在列，`trade_identity_create` 实调成功（`agent_fb9739c0` + Ed25519 公钥）；
+3. 一次性会话结束后无 `@agent-trade/.../runtime/server.mjs` 孤儿进程 —— `ctx.effect` 清理路径生效；
+4. `npm test`（plugin 包）34/34 绿，新增 4 条 0.1.2 契约测试锁死 `inject` 声明与注册/往返/错误路径（防止退回 `ctx.get` 静默写法）。
+
+**红线更新**：plugin.mjs 的 `inject` 必须包含 `tools` 与 `subprocess`；禁止恢复 `ctx.get('tools')` 的静默跳过写法与 `ctx.on('dispose')` 清理。0.1.1 兼容性不再保留（DSH 为预览版，0.1.2 为当前契约基线）。
