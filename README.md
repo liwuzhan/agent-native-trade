@@ -51,6 +51,8 @@ dsh plugin --profile web add \
 
 详细配置、验证与真实邮件接入见 [`AGENT_SETUP.md`](AGENT_SETUP.md)。
 
+如果目标只是让 DSH 中的模型拥有真实邮箱收发能力，并不要求使用本仓库的 AgentMail 参考适配器。可以直接复用社区的 [`dsh-email`](https://github.com/STARDUSTLC666/dsh-email)：它通过标准 IMAP/SMTP 提供收件、阅读、搜索、发送、回复、附件和增量检查等能力。`dsh-email` 与 Agent Native Trade 是并列插件，本项目不绑定特定邮箱客户端或服务商；模型可以根据当前已有工具自行完成接入，何时检查邮箱、如何定时或触发也由 Agent/宿主自己的任务循环决定。
+
 **入口文档**：
 - [`AGENT_SETUP.md`](AGENT_SETUP.md) — 给模型的接入说明：模型自行安装、配置和验证，只向人类索取不可自动取得的账号/授权
 - [`packages/codex-plugin/`](packages/codex-plugin/) — Codex 插件：skill、23 工具本地 MCP runtime 与仓库 marketplace
@@ -124,7 +126,7 @@ dsh plugin --profile web add \
 dsh --profile web --dump-config
 ```
 
-安装包声明 `dsh.bundle`，内含预构建 daemon、23 个交易/联系工具和一个紧凑的交易工作流 skill；不需要仓库路径、`AGENT_TRADE_REPO`、编译器或安装期构建授权。默认 provider `maildrop` 是无外网依赖的本地回环。接真实邮箱时设置 `AGENT_TRADE_CONTACT_PROVIDER=agentmail`、`AGENTMAIL_API_KEY` 与 `AGENT_TRADE_CONTACT_INBOX_ID`。
+安装包声明 `dsh.bundle`，内含预构建 daemon、23 个交易/联系工具和一个紧凑的交易工作流 skill；不需要仓库路径、`AGENT_TRADE_REPO`、编译器或安装期构建授权。默认 provider `maildrop` 是无外网依赖的本地回环。本仓库保留 AgentMail + `trade-inboxd` 作为事件驱动真实邮箱的参考路径；这不是协议依赖。DSH 若已经具备 `dsh-email` 或其他可由模型调用的 IMAP/SMTP 邮件工具，可以直接复用其真实邮箱能力，不需要修改 Agent Native Trade 的安装步骤。
 
 需要开发或验证旧 buyer/seller preset 时，再从源码执行：
 
