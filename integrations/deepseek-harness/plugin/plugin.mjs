@@ -27,7 +27,7 @@
  * 生命周期：daemon 懒启动（首次工具调用），插件 fiber 停止时经
  * ctx.effect 返回的 disposer terminate；注册随 Fiber 自动移除。
  *
- * DSH 0.1.2 契约（2026-09 复核，不再兼容 0.1.1）：
+ * DSH 0.1.2 契约（2026-09 复核；0.1.3-alpha.2 复验一致，不再兼容 0.1.1）：
  *   - tools 服务的提供时机晚于 profile bundle 的 apply：必须经 inject
  *     ['tools', 'subprocess'] 等待就绪；ctx.get('tools') 在 apply 当下
  *     为 undefined，旧写法会静默跳过全部工具（无任何报错）。

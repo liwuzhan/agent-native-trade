@@ -227,3 +227,24 @@ export function apply(ctx, config = {}) {  // config 来自行的 config 字段
 4. `npm test`（plugin 包）34/34 绿，新增 4 条 0.1.2 契约测试锁死 `inject` 声明与注册/往返/错误路径（防止退回 `ctx.get` 静默写法）。
 
 **红线更新**：plugin.mjs 的 `inject` 必须包含 `tools` 与 `subprocess`；禁止恢复 `ctx.get('tools')` 的静默跳过写法与 `ctx.on('dispose')` 清理。0.1.1 兼容性不再保留（DSH 为预览版，0.1.2 为当前契约基线）。
+
+---
+
+## 第六部分：DSH 0.1.3-alpha.2 复验（2026-09-02，无代码变更）
+
+**背景**：DSH 连续发布 0.1.2-alpha.4 / alpha.5 / 0.1.2-rc.1 / 0.1.3-alpha.2；本机升级到 0.1.3-alpha.2 后复核插件是否需要对齐。
+
+**结论**：**0.1.2 适配原样延续，零代码变更**。依赖面逐项对比（npm 双版本 tarball 解包 diff）：
+
+| 依赖 | 0.1.2-alpha.3 → 0.1.3-alpha.2 | 影响 |
+| --- | --- | --- |
+| `@deepseek-ai/dsh-tools` | **仅注释/文档差异，零代码变化**（lib/index.js 与 types 逐行 diff） | ToolDefinition / register / render / exec 契约不变 |
+| `@deepseek-ai/cordis` | 4.0.2 → 4.0.2（同版本） | inject / ctx.effect 语义不变 |
+| `@deepseek-ai/cordis-plugin-loader` | 1.0.3 → 1.0.3（同版本） | 插件导出形态 / preset 行解析不变 |
+| dsh CLI（plugin 命令 / profile boot） | 结构性重构（bin 包 `runCli`、chunk 重命名），plugin 转发逻辑逐行一致 | 安装/组合流程不变 |
+
+**真机证据**（0.1.3-alpha.2）：
+
+1. web GUI 实时会话 `Tool.listTools`：23 个 `trade_*`/`contact_*`/`human_task_*`/`settlement_*`/`catalog_*` 工具全部在列（进程重启 + 已装修复副本的组合验证）；
+2. headless 一次性会话：`trade_identity_create` ok（`agent_ad6da4cf`）+ `catalog_search`「众筹」命中 1 条（deepcrop.site）；会话结束无孤儿 daemon；
+3. `dsh --profile web --dump-config`：`agent-trade-tools` / `agent-trade-skills` 两行照常组合，`!!js` config 表达式求值正常。
