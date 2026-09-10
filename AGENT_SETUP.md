@@ -78,7 +78,7 @@ DSH bundle 使用与 Codex 相同的 `AGENT_TRADE_INDEXERS` 规则，未设置�
 
 ## 6. 从干净克隆构建开发路径
 
-只有修改协议实现、运行旧 buyer/seller preset 或构建发布包时才走本节。本仓库当前是多个独立 npm 包，不要假设根目录一次 `npm install` 会安装全部子包。先安装依赖：
+只有修改协议实现、运行 preset 路径（买卖一体的「交易代理」）或构建发布包时才走本节。本仓库当前是多个独立 npm 包，不要假设根目录一次 `npm install` 会安装全部子包。先安装依赖：
 
 ```bash
 npm ci
@@ -109,7 +109,7 @@ npm --prefix integrations/deepseek-harness/plugin run build
 bash integrations/deepseek-harness/install-presets.sh
 ```
 
-安装脚本把 `trade-buyer` 和 `trade-seller` preset 复制到 `${DSH_HOME:-$HOME/.dsh}/.agent-presets/`。脚本是 preset 安装器，不负责取得邮箱账号或支付能力。
+安装脚本把 `trade` preset（显示名「交易代理」）复制到 `${DSH_HOME:-$HOME/.dsh}/.agent-presets/`，并清掉已合并的旧 `trade-buyer` / `trade-seller` 目录。脚本是 preset 安装器，不负责取得邮箱账号或支付能力。交易工具仍由 §5 的标准 bundle 提供——preset 里那一行 `trade-tools` 默认 `disabled: true`，只有没装 bundle 的 profile 才需要导出 `AGENT_TRADE_REPO` 并打开它（见 `presets/trade/agent.cordis.yml` 内注释）。
 
 先用无外网回环验证：
 

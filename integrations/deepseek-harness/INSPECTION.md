@@ -63,7 +63,7 @@
 
 **A3 ✅ 动态工具生命周期** —— 实测闭环：`tprobe-1/pkg-4` 注册 `trade_probe_echo` → `Tool.listTools` 可见（出现在 agent 工具列表）→ 模型直接调用返回 `stdout`（shell 往返 OK）→ `cordis_stop` → 再次 `Tool.listTools` **工具已消失**。结论：注册随当前 Plugin Fiber 自动移除，无需手工清理。
 
-**A4 ⏳ preset 挂载校验** —— `agentPresets` 契约已实测读取（第三部分）；`standingKeyFor(id)` 的实际执行在验收步骤（对 trade-buyer/trade-seller 各一次）。
+**A4 ✅ preset 挂载校验** —— `agentPresets` 契约已实测读取（第三部分）；`standingKeyFor(id)` 已实际执行（真实组合含 plugin.mjs 行 + skills 行）。2026-09-11 起两个角色 preset 合并为单个 `trade`，校验见第九部分。
 
 **A5 ⏳ skills 挂载** —— `customSkillDirs` 行 + `tool-skill` 行按打包样例；实际可见性在真实 preset 会话验收。
 
@@ -89,7 +89,7 @@
 
 > ⚠️ **动态沙箱 timer 实测补充（2026-08-23 宿主崩溃后修正）**：声明 `inject: ['timer']` 后可用 `ctx.setTimeout`，但沙箱**不暴露 `ctx.clearTimeout`**（Guard 拒绝："sandbox ctx does not expose clearTimeout … the timer helpers after injecting timer"）；取消语义要走 timer Service 的 disposer 返回（`timeout(cb, ms) → () => void`，见 Service 契约）。且动态插件里的流回调（如 subprocess stdout `data` 处理器）**必须 try/catch 兜底**——未捕获异常会把宿主进程带崩（本会话实测）。静态插件（plugin.mjs）不受此限制（真实 Node 模块）。
 
-**D12 ⏳ persona 合并** —— 在真实 preset 会话验收时观察（`{{model}}`/`{{cwd}}` 解析、persona 行生效）。
+**D12 🟡 persona 合并（挂载层已结案 2026-09-11，渲染层待验收）** —— 挂载层：`prefix` 字段名错误曾让两个 preset 整体挂载失败（第八部分），修正后 `standingKeyFor` 通过；渲染层（`{{model}}`/`{{cwd}}` 解析、persona 段落生效）仍需在真实 preset 会话里观察。
 
 **D13 ⏳→FUTURE Event** —— M10 最小链路不依赖事件；「对方已签 DEAL 的通知」登记 FUTURE。Event Provider 目录已存在（host/client 各一），未细探。
 
@@ -269,3 +269,82 @@ export function apply(ctx, config = {}) {  // config 来自行的 config 字段
 1. web GUI 实时会话 `Tool.listTools`：23 个工具全部在列；**会话内直接实调 `catalog_search`（众筹）成功**——用户实际进程内完整链路（插件 → 懒 spawn daemon → deepcrop.site → 返回）验证，daemon 参数（`--dir/--agent-id/--indexers/...`）与配置一致；
 2. headless 一次性会话：`trade_identity_create` ok（`agent_7e35f932`）+ `catalog_search` 命中 1 条；会话结束 daemon 干净退出；
 3. `dsh --profile web --dump-config`：两个 agent-trade 行照常组合。
+
+---
+
+## 第八部分：preset 挂载修复 —— persona 字段名（2026-09-11，代码变更）
+
+**症状**：GUI 里无法把会话切换到「交易买方」/「交易卖方」；两个 preset 在设置名单里显示健康
+（不是 `broken`），切换却被宿主拒绝（`agent-preset/invalid`）。
+
+**根因**：两个 preset 的 persona 行写的是旧字段名 `text`，而本机 0.1.5-rc.1 的
+`@deepseek-ai/dsh-persona` 只认 `prefix / suffix / complete / includeRuntimeContext`，且 `prefix` 必填。
+该行 config 校验失败会连带**整个 preset 挂载被拒**（宿主原样返回的错误）：
+
+```
+agent-presets: preset "trade-buyer" failed to mount: failed to apply loader entry
+persona (@deepseek-ai/dsh-persona): invalid config:
+  - $.prefix missing required value (at prefix)
+  (/Users/liwuzhan/.dsh/.agent-presets/trade-buyer/agent.cordis.yml)
+```
+
+**为什么第七部分没发现**：第七部分的「23 工具」证据来自**宿主 bundle** 行
+（`@agent-trade/dsh-integration` 由 profile bundle 装载，任何会话都能看到这 23 个工具），
+preset 自身的组合从未被校验；名单的 `broken` 只是形状检查（YAML 可解析 + 行带 `name`），
+行 config 非法照样显示为健康。preset 由 `install-presets.sh` 复制进用户目录，脚本只复制、不校验。
+
+**修复**：`presets/{trade-buyer,trade-seller}/agent.cordis.yml` 的 persona 行
+`text:` → `prefix:`（文件内注释同步说明字段名要求）。
+
+**验收**（本机 0.1.5-rc.1 活进程，只读宿主探针 → `ctx.agentPresets.standingKeyFor(id)`）：
+
+| preset | 修复前 | 修复后 |
+| --- | --- | --- |
+| `trade-buyer` | FAILED（`$.prefix missing required value`） | **MOUNT OK** |
+| `trade-seller` | FAILED（同上） | **MOUNT OK** |
+| `standard` / `anchored-standard` / `cad-studio` / `novel-studio`（对照） | MOUNT OK | MOUNT OK |
+
+（这两个角色 preset 在同一天被合并为单个 `trade`，见第九部分；上表是合并前的修复记录。）
+
+> 复现方式（带 cordis 工具的动态宿主探针，只读）：
+> `harness.registerTool(ctx, harness.defineTool({ … execute: () => ctx.agentPresets.standingKeyFor(id) }))`。
+
+> 排查提示：会话跑过一轮之后 preset 即被锁定（`agent-preset/locked`，"its agent preset is fixed"），
+> 切换只能发生在空白会话（新建会话 chip，或尚未发过消息的会话）。这与本次故障无关，但容易误判。
+> 渲染层（`{{model}}`/`{{cwd}}`、persona 段落生效，即 D12）仍待真实 preset 会话验收。
+
+---
+
+## 第九部分：买卖 preset 合并为单个「交易代理」（2026-09-11，代码变更）
+
+**动机**：`trade-buyer` / `trade-seller` 暴露的工具集完全相同（同一份 `tool-spec.json` 的 23 个工具），
+差别只在两段 persona，以及各自预置的默认身份与数据根（`agent_buyer` + `~/.agent-trade/buyer`
+与 `agent_seller` + `~/.agent-trade/seller`）。一个 agent 本来就既买又卖，模式化拆分与
+「不要在 Agent 上做这种限制」的定位冲突，代价却是配置漂移：
+
+1. 两个 preset 各复制一份 `plugin.mjs`，随 preset 目录分发；
+2. `tradeDir` 不同：同一个模型的两套身份/密钥/历史被目录切开；
+3. preset 的 `trade-tools` 行与宿主标准 bundle 注册的**同名工具**互相遮蔽（scoped 遮蔽 global），
+   实际生效的是 preset 那份；而 preset 那份在未导出 `AGENT_TRADE_REPO` 时 daemon 根本起不来
+   （`serverJs` 解析到 preset 目录内不存在的 `runtime/server.mjs`）——即"装了 bundle 也会被 preset 的空壳遮蔽"。
+
+**做法**：删除 `presets/{trade-buyer,trade-seller}`，新增 `presets/trade/`（显示名「交易代理」）：
+
+- persona 行合并为一段买卖同体的人格；`{{model}}`/`{{cwd}}` 模板与两条安全红线逐条保留，只是不再分买卖措辞；
+- 交易工具默认交给标准 bundle（AGENT_SETUP.md §5）；preset 内的 `trade-tools` 行保留但 `disabled: true`，
+  作为"没装 bundle 的 profile"的逃生舱（行内注释写明需 `export AGENT_TRADE_REPO`）；
+- `install-presets.sh` 只装这一个 preset，并在安装时清掉旧的 `trade-buyer` / `trade-seller` 目录
+  （目录名即 preset id，不清掉会在名单里留下两个用不了的幽灵行）。
+
+**验收**（本机 0.1.5-rc.1 活进程，只读宿主探针，与第八部分同一支）：
+
+| 项 | 结果 |
+| --- | --- |
+| 名单 | 8 行：standard / ptc / minimal / cordis / anchored-standard / cad-studio / novel-studio / **trade**（名称「交易代理」） |
+| `trade` 挂载 | **MOUNT OK** |
+| `trade-buyer` / `trade-seller` | `preset "…" not found (available: … trade)` —— 名单已无残留 |
+| 安装产物 | `~/.dsh/.agent-presets/trade/`：agent.cordis.yml（与仓库源逐字节一致）+ preset.yml + persona.md + plugin.mjs + tool-spec.json + skills/（25 个） |
+| 对照 | `cad-studio` 等既有 preset 仍 MOUNT OK |
+
+> 待验收（真实会话）：persona 段落渲染（`{{model}}`/`{{cwd}}`，即 D12）、25 个 per-tool SKILL.md 的可见性（A5）、
+> 以及逃生舱行打开后的 daemon 启动（需 `AGENT_TRADE_REPO`）。

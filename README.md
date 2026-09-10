@@ -108,7 +108,7 @@ bash tools/verify-vectors-openssl.sh     # 用 OpenSSL 交叉验签（第二实�
 | M7 human-task | ✅ | 23/23 |
 | M8 demo-indexer | ✅ | 30/30 |
 | M9 mcp-server | ✅ | 28/28（含 stdio 冒烟 + 12 红线） |
-| M10 DSH 集成 | ✅ | 28/28 单测 + 最小链路 9 步演示 + contact bridge 6 步演示 + 双 preset 挂载校验 + 会话内往返 |
+| M10 DSH 集成 | ✅ | 28/28 单测 + 最小链路 9 步演示 + contact bridge 6 步演示 + preset 挂载校验 + 会话内往返 |
 | Codex 插件 | ✅ 首批实现 | Git-backed marketplace + 紧凑 skill + 23 工具预构建 MCP；真实 stdio 握手、工具枚举与身份创建测试 |
 | M11 棉花娃娃端到端 | ✅ | 106 断言全绿（run-demo.sh） |
 | Contact core | ✅ 首批实现 | 10/10（联系解析 + WakeTask + 文件队列） |
@@ -128,7 +128,7 @@ dsh --profile web --dump-config
 
 安装包声明 `dsh.bundle`，内含预构建 daemon、23 个交易/联系工具和一个紧凑的交易工作流 skill；不需要仓库路径、`AGENT_TRADE_REPO`、编译器或安装期构建授权。默认 provider `maildrop` 是无外网依赖的本地回环。本仓库保留 AgentMail + `trade-inboxd` 作为事件驱动真实邮箱的参考路径；这不是协议依赖。DSH 若已经具备 `dsh-email` 或其他可由模型调用的 IMAP/SMTP 邮件工具，可以直接复用其真实邮箱能力，不需要修改 Agent Native Trade 的安装步骤。
 
-需要开发或验证旧 buyer/seller preset 时，再从源码执行：
+需要开发或验证 preset 路径（买卖一体的「交易代理」）时，再从源码执行：
 
 ```bash
 bash integrations/deepseek-harness/install-presets.sh

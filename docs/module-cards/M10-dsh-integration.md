@@ -1,6 +1,7 @@
 # 模块卡片：M10 DSH 集成
 
-- **目标**：实现 `integrations/deepseek-harness`——Cordis Host 插件（注册交易工具）+ `trade-buyer` / `trade-seller` 两个 agent preset + SKILL.md。DSH 是冷启动的参考客户端 1 号。
+- **目标**：实现 `integrations/deepseek-harness`——Cordis Host 插件（注册交易工具）+ agent preset + SKILL.md。DSH 是冷启动的参考客户端 1 号。
+  - **2026-09-11 变更**：原先的 `trade-buyer` / `trade-seller` 两个角色 preset 已合并为单个 `trade`（显示名「交易代理」）。两者工具集完全相同，差别只是两段提示词与各自的默认身份/数据根；一个 agent 本来就既买又卖，模式化拆分会带来配置漂移。交易工具统一由标准 bundle 提供，preset 只负责人格与技能（见 `INSPECTION.md` 第九部分）。
 - **输入**：M2、M4、M5（搜索目录→议价→双签的最小链路）；技术选型 V0.4 §8.2。
 - **⚠️ 第一步**：任何代码之前，先在运行中的 DSH 里用 `cordis_inspect_list` / `cordis_inspect_query` 探测真实接口（Service/Event/Builtin/Tool），把探测结果存到 `integrations/deepseek-harness/INSPECTION.md`，再按真实接口设计。**禁止凭印象写 Cordis API。**
 
@@ -11,8 +12,7 @@ integrations/deepseek-harness/
 ├── INSPECTION.md            # cordis_inspect 探测记录（真实接口签名）
 ├── plugin/                  # Cordis Host 插件（code.host；需要 UI 时才加 code.client）
 ├── presets/
-│   ├── trade-buyer/         # preset.yml + agent.cordis.yml + persona
-│   └── trade-seller/
+│   └── trade/               # preset.yml + agent.cordis.yml + persona（买卖一体；旧 buyer/seller 已于 2026-09-11 合并到此）
 └── skills/                  # 每个工具一个 SKILL.md（frontmatter: name/description）
 ```
 
