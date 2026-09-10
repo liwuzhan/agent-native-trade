@@ -248,3 +248,24 @@ export function apply(ctx, config = {}) {  // config 来自行的 config 字段
 1. web GUI 实时会话 `Tool.listTools`：23 个 `trade_*`/`contact_*`/`human_task_*`/`settlement_*`/`catalog_*` 工具全部在列（进程重启 + 已装修复副本的组合验证）；
 2. headless 一次性会话：`trade_identity_create` ok（`agent_ad6da4cf`）+ `catalog_search`「众筹」命中 1 条（deepcrop.site）；会话结束无孤儿 daemon；
 3. `dsh --profile web --dump-config`：`agent-trade-tools` / `agent-trade-skills` 两行照常组合，`!!js` config 表达式求值正常。
+
+---
+
+## 第七部分：DSH 0.1.5-rc.1 复验（2026-09-04，无代码变更）
+
+**背景**：DSH 发布 0.1.5-alpha.1 / alpha.2 / rc.1（无 0.1.4）；本机升级 0.1.5-rc.1 并重启 GUI。
+
+**结论**：**0.1.2 适配继续原样延续，零代码变更**。依赖面对比（npm 双版本 tarball 解包 diff）：
+
+| 依赖 | 0.1.3-alpha.2 → 0.1.5-rc.1 | 影响 |
+| --- | --- | --- |
+| `@deepseek-ai/dsh-tools` | 仅 PTC 内部记账改名：session 事件 `tool/code-dispatch(-start)` → `tool/ptc-dispatch(-start)`、子调用 id 前缀 `:code:` → `:ptc:`、插件名字符串；**register/ToolDefinition/render/execute/exec.signal/parameters 契约零变化**（types/index.d.ts 代码级 diff 为空） | 无 |
+| `@deepseek-ai/cordis` | 4.0.2 → 4.0.2（同版本） | inject / ctx.effect 不变 |
+| `@deepseek-ai/cordis-plugin-loader` | 1.0.3 → 1.0.3（同版本） | 插件导出 / preset 解析不变 |
+| dsh CLI `plugin` 命令 | 仅 chunk 文件名变化，转发与 reconciler 逻辑逐行一致 | 安装流程不变 |
+
+**真机证据**（0.1.5-rc.1）：
+
+1. web GUI 实时会话 `Tool.listTools`：23 个工具全部在列；**会话内直接实调 `catalog_search`（众筹）成功**——用户实际进程内完整链路（插件 → 懒 spawn daemon → deepcrop.site → 返回）验证，daemon 参数（`--dir/--agent-id/--indexers/...`）与配置一致；
+2. headless 一次性会话：`trade_identity_create` ok（`agent_7e35f932`）+ `catalog_search` 命中 1 条；会话结束 daemon 干净退出；
+3. `dsh --profile web --dump-config`：两个 agent-trade 行照常组合。
