@@ -52,7 +52,7 @@ cd packages/dsh-plugin
 mkdir -p release
 npm pack --pack-destination release
 dsh plugin --profile agent-trade-smoke add \
-  ./release/agent-trade-dsh-integration-0.2.1.tgz
+  ./release/agent-trade-dsh-integration-0.2.3.tgz
 dsh --profile agent-trade-smoke --dump-config
 ```
 
@@ -63,5 +63,6 @@ The dump must contain both `agent-trade-tools` and `agent-trade-skills`.
 - Node.js 24 or newer.
 - DeepSeek Harness versions compatible with
   `@deepseek-ai/dsh-skill-filesystem` 0.1.1 prereleases or 0.1.x stable.
-- The legacy buyer/seller preset installer remains supported; when it supplies
-  `AGENT_TRADE_REPO`, the plugin uses the checkout daemon for development.
+- The source preset installer installs one combined `trade` preset for buying
+  and selling. When it supplies `AGENT_TRADE_REPO`, the plugin uses the checkout
+  daemon for development.
